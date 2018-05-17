@@ -21,8 +21,7 @@ class CalculateAvgNeighbourDegree(BaseEstimator, TransformerMixin):
         :param ids:
         """
         self.graph = graph
-
-        self.avg_neig_deg = nx.average_neighbor_degree(self.graph)
+        self.avg_neig_deg = None
 
     def transform(self, X=None, y=None):
         """
@@ -31,6 +30,7 @@ class CalculateAvgNeighbourDegree(BaseEstimator, TransformerMixin):
         :param y:
         :return:
         """
+        self.avg_neig_deg = nx.average_neighbor_degree(self.graph)
 
         if X is None:
             df = pd.DataFrame.from_dict(self.avg_neig_deg, orient='index')
@@ -53,8 +53,7 @@ class CalculateOutDegree(BaseEstimator, TransformerMixin):
         :param graph:
         """
         self.graph = graph
-
-        self.out_degree = {tupl[0]: tupl[1] for tupl in self.graph.out_degree()}
+        self.out_degree = None
 
     def transform(self, X=None, y=None):
         """
@@ -63,6 +62,8 @@ class CalculateOutDegree(BaseEstimator, TransformerMixin):
         :param y:
         :return:
         """
+
+        self.out_degree = self.graph.out_degree()
 
         if X is None:
             df = pd.DataFrame.from_dict(self.out_degree, orient='index')
@@ -85,8 +86,7 @@ class CalculateInDegree(BaseEstimator, TransformerMixin):
         :param graph:
         """
         self.graph = graph
-
-        self.in_degree = {tupl[0]: tupl[1] for tupl in self.graph.in_degree()}
+        self.in_degree = None
 
     def transform(self, X=None, y=None):
         """
@@ -95,6 +95,9 @@ class CalculateInDegree(BaseEstimator, TransformerMixin):
         :param y:
         :return:
         """
+
+        self.in_degree = self.graph.in_degree()
+
         if X is None:
             df = pd.DataFrame.from_dict(self.in_degree, orient='index')
             df.columns = ['in_degree']
@@ -118,7 +121,7 @@ class CalculateOutDegreeCentrality(BaseEstimator, TransformerMixin):
         """
         self.graph = graph
 
-        self.out_deg_centrality = nx.out_degree_centrality(self.graph)
+        self.out_deg_centrality = None
 
     def transform(self, X=None, y=None):
         """
@@ -128,6 +131,7 @@ class CalculateOutDegreeCentrality(BaseEstimator, TransformerMixin):
         :return:
         """
 
+        self.out_deg_centrality = nx.out_degree_centrality(self.graph)
         if X is None:
             df = pd.DataFrame.from_dict(self.out_deg_centrality, orient='index')
             df.columns = ['out_degree_centr']
@@ -151,7 +155,7 @@ class CalculateInDegreeCentrality(BaseEstimator, TransformerMixin):
         """
         self.graph = graph
 
-        self.in_deg_centrality = nx.in_degree_centrality(self.graph)
+        self.in_deg_centrality = None
 
     def transform(self, X=None, y=None):
         """
@@ -161,6 +165,7 @@ class CalculateInDegreeCentrality(BaseEstimator, TransformerMixin):
         :return:
         """
 
+        self.in_deg_centrality = nx.in_degree_centrality(self.graph)
         if X is None:
             df = pd.DataFrame.from_dict(self.in_deg_centrality, orient='index')
             df.columns = ['in_degree_centr']
@@ -184,7 +189,7 @@ class CalculateBetweenessCentrality(BaseEstimator, TransformerMixin):
         """
         self.graph = graph
 
-        self.betweeness_centrality = nx.betweenness_centrality(self.graph)
+        self.betweeness_centrality = None
 
     def transform(self, X=None, y=None):
         """
@@ -193,6 +198,8 @@ class CalculateBetweenessCentrality(BaseEstimator, TransformerMixin):
         :param y:
         :return:
         """
+
+        self.betweeness_centrality = nx.betweenness_centrality(self.graph)
 
         if X is None:
             df = pd.DataFrame.from_dict(self.betweeness_centrality, orient='index')
@@ -218,7 +225,7 @@ class CalculateClosenessCentrality(BaseEstimator, TransformerMixin):
         """
         self.graph = graph
 
-        self.closeness_centrality = nx.closeness_centrality(self.graph)
+        self.closeness_centrality = None
 
     def transform(self, X=None, y=None):
         """
@@ -227,6 +234,8 @@ class CalculateClosenessCentrality(BaseEstimator, TransformerMixin):
         :param y:
         :return:
         """
+
+        self.closeness_centrality = nx.closeness_centrality(self.graph)
 
         if X is None:
             df = pd.DataFrame.from_dict(self.closeness_centrality, orient='index')
@@ -252,7 +261,7 @@ class CalculatePageRank(BaseEstimator, TransformerMixin):
         """
         self.graph = graph
 
-        self.page_rank = pr = nx.pagerank(self.graph, alpha=0.9)
+        self.page_rank = None
 
     def transform(self, X=None, y=None):
         """
@@ -261,6 +270,8 @@ class CalculatePageRank(BaseEstimator, TransformerMixin):
         :param y:
         :return:
         """
+
+        self.page_rank = nx.pagerank(self.graph, alpha=0.9)
 
         if X is None:
             df = pd.DataFrame.from_dict(self.page_rank, orient='index')
@@ -287,7 +298,7 @@ class CalculateHubsAndAuthorities(BaseEstimator, TransformerMixin):
         """
         self.graph = graph
 
-        self.hubs, self.authorities = nx.hits(self.graph)
+        self.hubs, self.authorities = None, None
 
     def transform(self, X, y=None):
         """
@@ -296,14 +307,16 @@ class CalculateHubsAndAuthorities(BaseEstimator, TransformerMixin):
         :param y:
         :return:
         """
+        self.hubs, self.authorities = nx.hits(self.graph)
 
         if X is None:
-            all_nodes = self.graph.nodes()
-            df = pd.DataFrame(index=all_nodes)
+            df_hubs = pd.DataFrame.from_dict(self.hubs, orient='index')
+            df_hubs.columns = ['hubs']
 
-            df['hubs'] = pd.Series(df.index).apply(lambda x: self.hubs[x])
-            df['authorities'] = pd.Series(df.index).apply(lambda x: self.authorities[x])
+            df_authorities = pd.DataFrame.from_dict(self.hubs, orient='index')
+            df_authorities.columns = ['authorities']
 
+            df = df_hubs.merge(df_authorities, left_index=True, right_index=True)
             return df
 
         df = pd.DataFrame(X, columns=['node_ids'])
@@ -318,14 +331,20 @@ class CalculateHubsAndAuthorities(BaseEstimator, TransformerMixin):
 
 
 class CalculateNumberOfTriangles(BaseEstimator, TransformerMixin):
-    def __init__(self, graph):
+    """Only for directed graphs"""
+
+    def __init__(self, graph, to_undirected=False):
         """
 
         :param graph:
         """
-        self.graph = graph
+        self.to_undirected = to_undirected
 
-        self.n_triangles = nx.triangles(self.graph)
+        self.graph = graph
+        if self.to_undirected:
+            self.graph = self.graph.to_undirected()
+
+        self.n_triangles = None
 
     def transform(self, X=None, y=None):
         """
@@ -334,10 +353,13 @@ class CalculateNumberOfTriangles(BaseEstimator, TransformerMixin):
         :param y:
         :return:
         """
+
+        self.n_triangles = nx.triangles(self.graph)
+
         if X is None:
             df = pd.DataFrame.from_dict(self.n_triangles, orient='index')
 
-            df.columns = ['n_triangles']
+            df.columns = ['undirected_triangles']
 
             return df
 
@@ -519,7 +541,7 @@ def create_cites_graph_features(load=False, save=True):
     :param save:
     :return:
     """
-    outfile = os.path.join(PROCESSED_DATA_DIR, 'cites_graph_features_df.csv')
+    outfile = os.path.join(PROCESSED_DATA_DIR, 'cites_graph_features.csv')
 
     if load:
         df = pd.read_csv(outfile)
@@ -528,49 +550,39 @@ def create_cites_graph_features(load=False, save=True):
     dl_obj = restore_data_loader()
     cites_graph = dl_obj.cites_graph
 
-    avg_neigh_deg = CalculateAvgNeighbourDegree(graph=cites_graph).fit_transform(X=None)
-    out_deg_dict = CalculateOutDegree(graph=cites_graph).fit_transform(X=None)
-    in_deg_dict = CalculateInDegree(graph=cites_graph).fit_transform(X=None)
-    out_deg_centrality = CalculateOutDegreeCentrality(graph=cites_graph).fit_transform(X=None)
-    in_deg_centrality = CalculateInDegreeCentrality(graph=cites_graph).fit_transform(X=None)
-    betweeness_centrality = CalculateBetweenessCentrality(graph=cites_graph).fit_transform(X=None)
-    closeness_centrality = CalculateClosenessCentrality(graph=cites_graph).fit_transform(X=None)
-    page_rank = CalculatePageRank(graph=cites_graph).fit_transform(X=None)
-    hubs_authorities = CalculateHubsAndAuthorities(graph=cites_graph).fit_transform(X=None)
-    triangles = CalculateNumberOfTriangles(graph=cites_graph).fit_transform(X=None)
-
-    features = [
-        avg_neigh_deg,
-        out_deg_dict,
-        in_deg_dict,
-        out_deg_centrality,
-        in_deg_centrality,
-        betweeness_centrality,
-        closeness_centrality,
-        page_rank,
-        hubs_authorities,
-        triangles
+    features_objects = [
+        # CalculateAvgNeighbourDegree(graph=cites_graph),
+        # CalculateOutDegree(graph=cites_graph),
+        # CalculateInDegree(graph=cites_graph),
+        # CalculateOutDegreeCentrality(graph=cites_graph),
+        # CalculateInDegreeCentrality(graph=cites_graph),
+        # CalculateNumberOfTriangles(graph=cites_graph, to_undirected=True),
+        # CalculateBetweenessCentrality(graph=cites_graph),
+        CalculateClosenessCentrality(graph=cites_graph),
+        CalculatePageRank(graph=cites_graph),
+        CalculateHubsAndAuthorities(graph=cites_graph),
     ]
 
     df = pd.DataFrame(index=cites_graph.nodes())
 
-    for feature_df in features:
-        df = df.merge(feature_df, left_index=True, right_index=True)
+    for feat_obj in features_objects:
+        feat_obj_df = feat_obj.fit_transform(X=None)
+        df = df.merge(feat_obj_df, left_index=True, right_index=True)
+
+        if save:
+            df_out = df.reset_index()
+            df_out.rename(columns={'index': 'Article'}, inplace=True)
+            df_out.to_csv(outfile, encoding='utf-8', index=True)
+            print('Saved Features: {}'.format(df_out.columns.tolist()))
 
     df.reset_index(inplace=True)
-
-    if save:
-        df.to_csv(outfile, encoding='utf-8', index=True)
-
+    df.rename(columns={'index': 'Article'}, inplace=True)
     return df
 
 
 if __name__ == "__main__":
-    cites_df = create_cites_graph_features(load=False, save=True)
-
+    cites_df = create_cites_graph_features(load=True, save=False)
     print(cites_df)
-
-    # print(obj2.out_degree)
 
     # authors = ['P.H. Damgaard', 'Yuri A. Kubyshin', 'S.P. Khastgir']
 
@@ -580,3 +592,10 @@ if __name__ == "__main__":
     #                                  authors_graph)
     #
     # pprint(x)
+
+    # dl_obj = restore_data_loader()
+    # cites_graph = dl_obj.cites_graph
+    #
+    # x = CalculateNumberOfTriangles(cites_graph, to_undirected=True).fit_transform(X=None)
+    #
+    # print(x)
