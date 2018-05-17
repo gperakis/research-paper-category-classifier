@@ -1,0 +1,9 @@
+tqdm
+networkx
+keras
+numpy
+seaborn
+matplotlib
+spacy
+beautifulsoup4
+scikit-learn
