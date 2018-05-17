@@ -7,9 +7,9 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from tqdm import tqdm
 
-from dsce import setup_logger, CONTRACTION_MAP
-from dsce.text_mining import tokenize_text
-from dsce.word_embedding import GloveWordEmbedding
+from rpcc import setup_logger, CONTRACTION_MAP
+from rpcc.text_mining import tokenize_text
+from rpcc.word_embedding import GloveWordEmbedding
 
 SPACY_NLP = spacy.load('en', parse=False, tag=False, entity=False)
 

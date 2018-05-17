@@ -6,8 +6,8 @@ import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
 from tqdm import tqdm
 
-from dsce import setup_logger, PROCESSED_DATA_DIR
-from dsce.load_data import restore_data_loader, DataLoader
+from rpcc import setup_logger, PROCESSED_DATA_DIR
+from rpcc.load_data import restore_data_loader, DataLoader
 
 logger = setup_logger(__name__)
 

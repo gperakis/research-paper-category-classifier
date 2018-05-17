@@ -7,8 +7,8 @@ from bs4 import BeautifulSoup
 from nltk.tokenize.toktok import ToktokTokenizer
 from sklearn.base import BaseEstimator, TransformerMixin
 
-from dsce import CONTRACTION_MAP
-from dsce import setup_logger
+from rpcc import CONTRACTION_MAP
+from rpcc import setup_logger
 
 logger = setup_logger(__name__)
 spacy_nlp = spacy.load('en', parse=False, tag=False, entity=False)

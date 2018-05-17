@@ -1,8 +1,8 @@
 import logging
 import os
 from logging import handlers
-from os.path import exists
 from os import makedirs
+from os.path import exists
 
 
 def setup_logger(name):
