@@ -359,6 +359,3 @@ def restore_data_loader():
 if __name__ == "__main__":
     dumb_data_loader()
     obj = restore_data_loader()
-
-    print(obj.authors_graph.number_of_nodes())
-    print(obj.authors_graph.number_of_edges())

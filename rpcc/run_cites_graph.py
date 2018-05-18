@@ -2,7 +2,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
-
+from sklearn.ensemble import RandomForestClassifier
 from rpcc import features_graph
 from rpcc.load_data import restore_data_loader, DataLoader
 from rpcc.run_models import run_grid_search
@@ -28,7 +28,7 @@ if __name__ == "__main__":
         # ('clf', SVC()),
         # ('clf', MultinomialNB())
         # ('clf', LogisticRegression())
-        ('clf', KNeighborsClassifier())
+        ('clf', RandomForestClassifier())
         # ('clf', GradientBoostingClassifier())
         # ('clf', RandomForestClassifier())
     ])
@@ -36,9 +36,9 @@ if __name__ == "__main__":
     params = {
         # 'clf__penalty': ('l1', 'l2'),  # Logistic
         # 'clf__C': (10, 1, 0.1, 0.01, 0.001),
-        'clf__n_neighbors': (3, 5, 7, 9, 10, 15, 20, 50, 100),
-        'clf__leaf_size': (10, 20, 30, 50, 100),
-        'clf__p': (2, 3, 5),
+        # 'clf__n_neighbors': (3, 5, 7, 9, 10, 15, 20, 50, 100),
+        # 'clf__leaf_size': (10, 20, 30, 50, 100),
+        # 'clf__p': (2, 3, 5),
 
         # 'clf__kernel': ('rbf', 'linear'),  # SVM
         # 'clf__gamma': (0.1, 0.01, 0.001, 0.0001),  # SVM
@@ -47,7 +47,7 @@ if __name__ == "__main__":
         # 'clf__learning_rate': (0.1, 0.01, 0.001),  # Gradient Boosting
         # 'clf__n_estimators': (100, 300, 600),  # Gradient Boosting, Random Forest
         # 'clf__alpha': (0.5, 1.0),  # MultinomialNB
-        # 'clf__max_depth': [10, 50, 100, None],  # Random Forest
+        'clf__max_depth': [2, 5, None],  # Random Forest
     }
 
     x_train_validation = cites_graph_features[
