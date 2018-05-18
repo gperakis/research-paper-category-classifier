@@ -112,6 +112,40 @@ class CalculateInDegree(BaseEstimator, TransformerMixin):
         return self
 
 
+class CalculateUndirectedDegree(BaseEstimator, TransformerMixin):
+
+    def __init__(self, graph):
+        """
+
+        :param graph:
+        """
+        self.graph = graph
+        self.degree = None
+
+    def transform(self, X=None, y=None):
+        """
+
+        :param X: Network X node IDs in a list
+        :param y:
+        :return:
+        """
+
+        self.degree = {t[0]: t[1] for t in self.graph.degree()}
+
+        if X is None:
+            df = pd.DataFrame.from_dict(self.degree, orient='index')
+            df.columns = ['in_degree']
+
+            return df
+
+        series = pd.Series(X, name='node_ids')
+        return series.apply(lambda x: self.degree.get(x))
+
+    def fit(self, X, y=None):
+        """Returns `self` unless something different happens in train and test"""
+        return self
+
+
 class CalculateOutDegreeCentrality(BaseEstimator, TransformerMixin):
 
     def __init__(self, graph):
@@ -166,6 +200,40 @@ class CalculateInDegreeCentrality(BaseEstimator, TransformerMixin):
         """
 
         self.in_deg_centrality = nx.in_degree_centrality(self.graph)
+        if X is None:
+            df = pd.DataFrame.from_dict(self.in_deg_centrality, orient='index')
+            df.columns = ['in_degree_centr']
+            return df
+
+        series = pd.Series(X, name='node_ids')
+
+        return series.apply(lambda x: self.in_deg_centrality[x])
+
+    def fit(self, X, y=None):
+        """Returns `self` unless something different happens in train and test"""
+        return self
+
+
+class CalculateUndirectedDegreeCentrality(BaseEstimator, TransformerMixin):
+
+    def __init__(self, graph):
+        """
+
+        :param graph:
+        """
+        self.graph = graph
+
+        self.in_deg_centrality = None
+
+    def transform(self, X=None, y=None):
+        """
+
+        :param X: Network X node IDs in a list
+        :param y:
+        :return:
+        """
+
+        self.in_deg_centrality = nx.degree_centrality(self.graph)
         if X is None:
             df = pd.DataFrame.from_dict(self.in_deg_centrality, orient='index')
             df.columns = ['in_degree_centr']
@@ -561,6 +629,50 @@ def create_paper_author_features(load=False, save=True):
     return df
 
 
+def create_author_graph_features(load=False, save=True):
+    """
+
+    :param load:
+    :param save:
+    :return:
+    """
+    outfile = os.path.join(PROCESSED_DATA_DIR, 'pure_author_graph_features.csv')
+
+    if load:
+        df = pd.read_csv(outfile)
+        return df
+
+    dl_obj = restore_data_loader()
+    cites_graph = dl_obj.authors_graph
+
+    features_objects = [
+        CalculateAvgNeighbourDegree(graph=cites_graph),
+        CalculateUndirectedDegree(graph=cites_graph),
+        CalculateUndirectedDegreeCentrality(graph=cites_graph),
+        CalculateNumberOfTriangles(graph=cites_graph, to_undirected=False),
+        CalculatePageRank(graph=cites_graph),
+        CalculateHubsAndAuthorities(graph=cites_graph),
+        CalculateBetweenessCentrality(graph=cites_graph),
+        CalculateClosenessCentrality(graph=cites_graph),
+    ]
+
+    df = pd.DataFrame(index=cites_graph.nodes())
+
+    for feat_obj in features_objects:
+        feat_obj_df = feat_obj.fit_transform(X=None)
+        df = df.merge(feat_obj_df, left_index=True, right_index=True)
+
+        if save:
+            df_out = df.reset_index()
+            df_out.rename(columns={'index': 'author'}, inplace=True)
+            df_out.to_csv(outfile, encoding='utf-8', index=True)
+            print('Saved Features: {}'.format(df_out.columns.tolist()))
+
+    df.reset_index(inplace=True)
+    df.rename(columns={'index': 'author'}, inplace=True)
+    return df
+
+
 def create_cites_graph_features(load=False, save=True):
     """
 
@@ -596,7 +708,6 @@ def create_cites_graph_features(load=False, save=True):
         feat_obj_df = feat_obj.fit_transform(X=None)
         df = df.merge(feat_obj_df, left_index=True, right_index=True)
 
-
         if save:
             df_out = df.reset_index()
             df_out.rename(columns={'index': 'Article'}, inplace=True)
@@ -611,7 +722,7 @@ def create_cites_graph_features(load=False, save=True):
 if __name__ == "__main__":
     # cites_df = create_cites_graph_features(load=True, save=False)
     # print(cites_df)
-    df = create_paper_author_features()
+    df = create_author_graph_features()
     print(df)
     # authors = ['P.H. Damgaard', 'Yuri A. Kubyshin', 'S.P. Khastgir']
 
