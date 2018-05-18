@@ -8,6 +8,7 @@ from tqdm import tqdm
 
 from rpcc import setup_logger, PROCESSED_DATA_DIR
 from rpcc.load_data import restore_data_loader, DataLoader
+from pprint import pprint
 
 logger = setup_logger(__name__)
 
@@ -575,10 +576,8 @@ def get_paper_authors_metadata(authors, authors_probs, targets, authors_graph):
 def create_paper_author_features(load=False, save=True):
     """
 
-    :param papers_df:
-    :param authors_probs:
-    :param targets:
-    :param authors_graph:
+    :param load:
+    :param save:
     :return:
     """
     outfile = os.path.join(PROCESSED_DATA_DIR, 'authors_graph_features.csv')
@@ -716,19 +715,68 @@ def create_cites_graph_features(load=False, save=True):
 
     df.reset_index(inplace=True)
     df.rename(columns={'index': 'Article'}, inplace=True)
+    df.fillna(0, inplace=True)
+
+    return df
+
+
+def create_combined_paper_authors_graph_features(load=False, save=True):
+    """
+
+    :return:
+    """
+    outfile = os.path.join(PROCESSED_DATA_DIR, 'total_paper_2_authors_features.csv')
+
+    if load:
+        df = pd.read_csv(outfile)
+        return df
+
+    dl_obj = restore_data_loader()
+    papers_df = pd.concat([dl_obj.x_train_validation, dl_obj.x_test])[['Article', 'authors']]
+    article_2_authors_dict = papers_df.set_index('Article').to_dict('index')
+
+    author_graph_based_features = create_author_graph_features(load=True)
+    author_graph_based_features.drop('Unnamed: 0', axis=1, inplace=True)
+    author_graph_based_features.set_index('author', inplace=True)
+
+    authors_metadata_dict = author_graph_based_features.to_dict('index')
+
+    paper_author_graph_based_features = create_paper_author_features(load=True)
+    paper_author_graph_based_features.fillna(0.0, inplace=True)
+
+    records = paper_author_graph_based_features.to_dict('records')
+
+    out = list()
+    for doc in tqdm(records):
+        doc['Article'] = str(int(doc['Article']))
+        authors = article_2_authors_dict.get(doc['Article'], {}).get('authors', '')
+        authors = DataLoader.clean_up_authors(authors)
+        # only keeping those authors that have length over 2 characters.
+        co_authors = [author for author in authors if len(author) > 2]
+
+        temp_df = pd.DataFrame([authors_metadata_dict.get(author, {}) for author in co_authors])
+        temp_df.dropna(inplace=True)
+
+        paper_sum = temp_df.sum().add_prefix('paper_sum_').to_dict()
+        paper_avg = temp_df.mean().add_prefix('paper_avg_')
+        paper_std = temp_df.std().add_prefix('paper_std_')
+
+        doc.update(paper_sum)
+        doc.update(paper_avg)
+        doc.update(paper_std)
+        out.append(doc)
+
+    df = pd.DataFrame(out)
+    df.fillna(0, inplace=True)
+
+    if save:
+        df.to_csv(outfile, encoding='utf-8', index=False)
+        print('Saved Features: {}'.format(df.columns.tolist()))
     return df
 
 
 if __name__ == "__main__":
     # cites_df = create_cites_graph_features(load=True, save=False)
     # print(cites_df)
-    df = create_author_graph_features()
-    print(df)
-    # authors = ['P.H. Damgaard', 'Yuri A. Kubyshin', 'S.P. Khastgir']
-
-    # x = create_paper_author_features(dl_obj.x_val,
-    #                                  dl_obj.authors_label_props,
-    #                                  dl_obj.targets,
-    #                                  authors_graph)
-    #
-    # pprint(x)
+    x = create_combined_paper_authors_graph_features(load=True, save=False)
+    print(x.head())

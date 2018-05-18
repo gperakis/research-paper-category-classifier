@@ -25,7 +25,7 @@ if __name__ == "__main__":
     # x_train = cites_graph_features[cites_graph_features['Article'].isin(train_ids)].set_index('Article')
     # x_validation = cites_graph_features[cites_graph_features['Article'].isin(validation_ids)].set_index('Article')
     #
-    vect_based_pipeline = Pipeline([
+    graph_based_pipe = Pipeline([
         ('scaling', StandardScaler()),
         # ('scaling', MinMaxScaler()),
         # ('pca', PCA()),
@@ -58,6 +58,6 @@ if __name__ == "__main__":
 
     grid_results = run_grid_search(X=x_train_validation,
                                    y=dl_obj.y_train_validation,
-                                   pipeline=vect_based_pipeline,
+                                   pipeline=graph_based_pipe,
                                    parameters=params,
                                    scoring='accuracy')
