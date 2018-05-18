@@ -592,10 +592,3 @@ if __name__ == "__main__":
     #                                  authors_graph)
     #
     # pprint(x)
-
-    # dl_obj = restore_data_loader()
-    # cites_graph = dl_obj.cites_graph
-    #
-    # x = CalculateNumberOfTriangles(cites_graph, to_undirected=True).fit_transform(X=None)
-    #
-    # print(x)
