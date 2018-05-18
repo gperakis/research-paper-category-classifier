@@ -504,7 +504,7 @@ def get_paper_authors_metadata(authors, authors_probs, targets, authors_graph):
     return out
 
 
-def create_paper_author_features(papers_df, authors_probs, targets, authors_graph):
+def create_paper_author_features(load=False, save=True):
     """
 
     :param papers_df:
@@ -513,25 +513,52 @@ def create_paper_author_features(papers_df, authors_probs, targets, authors_grap
     :param authors_graph:
     :return:
     """
+    outfile = os.path.join(PROCESSED_DATA_DIR, 'authors_graph_features.csv')
+
+    if load:
+        df = pd.read_csv(outfile)
+        return df
+
+    dl_obj = restore_data_loader()
+
+    authors_probs = dl_obj.authors_label_props
+    targets = dl_obj.targets
+    authors_graph = dl_obj.authors_graph
+    papers_df = pd.concat([dl_obj.x_train_validation, dl_obj.x_test])[['Article', 'authors']]
+
     docs = papers_df[['Article', 'authors']].to_dict('records')
 
     results = list()
 
+    counter = 0
     for doc in tqdm(docs):
+        article_id = str(doc['Article'])
         authors = DataLoader.clean_up_authors(doc['authors'])
         # only keeping those authors that have length over 2 characters.
         co_authors = [author for author in authors if len(author) > 2]
 
-        paper_features = {'Article': doc['Article']}
+        paper_features = {'Article': article_id}
 
         if co_authors:
-            paper_features = get_paper_authors_metadata(co_authors,
-                                                        authors_probs,
-                                                        targets,
-                                                        authors_graph)
+            paper_features.update(get_paper_authors_metadata(co_authors,
+                                                             authors_probs,
+                                                             targets,
+                                                             authors_graph))
         results.append(paper_features)
 
-    return pd.DataFrame(results)
+        if save:
+            counter += 1
+
+            if counter % 100 == 0:
+                df = pd.DataFrame(results)
+                df.to_csv(outfile, encoding='utf-8', index=False)
+                print('Saved {} paper features'.format(counter))
+
+    df = pd.DataFrame(results)
+    if save:
+        df.to_csv(outfile, encoding='utf-8', index=False)
+
+    return df
 
 
 def create_cites_graph_features(load=False, save=True):
@@ -551,13 +578,13 @@ def create_cites_graph_features(load=False, save=True):
     cites_graph = dl_obj.cites_graph
 
     features_objects = [
-        # CalculateAvgNeighbourDegree(graph=cites_graph),
-        # CalculateOutDegree(graph=cites_graph),
-        # CalculateInDegree(graph=cites_graph),
-        # CalculateOutDegreeCentrality(graph=cites_graph),
-        # CalculateInDegreeCentrality(graph=cites_graph),
-        # CalculateNumberOfTriangles(graph=cites_graph, to_undirected=True),
-        # CalculateBetweenessCentrality(graph=cites_graph),
+        CalculateAvgNeighbourDegree(graph=cites_graph),
+        CalculateOutDegree(graph=cites_graph),
+        CalculateInDegree(graph=cites_graph),
+        CalculateOutDegreeCentrality(graph=cites_graph),
+        CalculateInDegreeCentrality(graph=cites_graph),
+        CalculateNumberOfTriangles(graph=cites_graph, to_undirected=True),
+        CalculateBetweenessCentrality(graph=cites_graph),
         CalculateClosenessCentrality(graph=cites_graph),
         CalculatePageRank(graph=cites_graph),
         CalculateHubsAndAuthorities(graph=cites_graph),
@@ -568,6 +595,7 @@ def create_cites_graph_features(load=False, save=True):
     for feat_obj in features_objects:
         feat_obj_df = feat_obj.fit_transform(X=None)
         df = df.merge(feat_obj_df, left_index=True, right_index=True)
+
 
         if save:
             df_out = df.reset_index()
@@ -581,9 +609,10 @@ def create_cites_graph_features(load=False, save=True):
 
 
 if __name__ == "__main__":
-    cites_df = create_cites_graph_features(load=True, save=False)
-    print(cites_df)
-
+    # cites_df = create_cites_graph_features(load=True, save=False)
+    # print(cites_df)
+    df = create_paper_author_features()
+    print(df)
     # authors = ['P.H. Damgaard', 'Yuri A. Kubyshin', 'S.P. Khastgir']
 
     # x = create_paper_author_features(dl_obj.x_val,
