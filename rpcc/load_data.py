@@ -20,11 +20,16 @@ class DataLoader:
                  info_file_name="node_information.csv",
                  verbose=0):
         """
-        :param train_file_name: str. file name of the training data (features: article, journal)
-        :param test_file_name: str. file name of the test data (features: article)
-        :param graph_file_name: str. file name of the network structure
-        :param info_file_name: str. file name of the data (features: article, title, year, authors, abstract)
-        :param verbose: int. verbosity
+        :type verbose: int
+        :type info_file_name: str
+        :type graph_file_name: str
+        :type test_file_name: str
+        :type train_file_name: str
+        :param train_file_name: File name of the training data (features: article, journal)
+        :param test_file_name: File name of the test data (features: article)
+        :param graph_file_name: File name of the network structure
+        :param info_file_name: File name of the data (features: article, title, year, authors, abstract)
+        :param verbose: Level of verbosity
         """
 
         self.train_file_name = os.path.join(RAW_DATA_DIR, train_file_name)
