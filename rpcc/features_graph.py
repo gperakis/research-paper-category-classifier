@@ -5,12 +5,39 @@ import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator, TransformerMixin
 from tqdm import tqdm
-
+from networkx.algorithms import community
 from rpcc import setup_logger, PROCESSED_DATA_DIR
 from rpcc.load_data import restore_data_loader, DataLoader
 from pprint import pprint
 
 logger = setup_logger(__name__)
+
+
+class GraphToAdjacenyMatrixTransformer(BaseEstimator, TransformerMixin):
+
+    def __init__(self, graph):
+        """
+
+        :param graph:
+        :param ids:
+        """
+        self.graph = graph
+        self.matrix = None
+
+    def transform(self, X=None, y=None):
+        """
+
+        :param X: Network X node IDs in a list
+        :param y:
+        :return:
+        """
+        self.matrix = nx.to_numpy_matrix(self.graph)
+
+        return self.matrix
+
+    def fit(self, X, y=None):
+        """Returns `self` unless something different happens in train and test"""
+        return self
 
 
 class CalculateAvgNeighbourDegree(BaseEstimator, TransformerMixin):
@@ -778,5 +805,40 @@ def create_combined_paper_authors_graph_features(load=False, save=True):
 if __name__ == "__main__":
     # cites_df = create_cites_graph_features(load=True, save=False)
     # print(cites_df)
-    x = create_combined_paper_authors_graph_features(load=True, save=False)
-    print(x.head())
+    # x = create_combined_paper_authors_graph_features(load=True, save=False)
+    # print(x.head())
+
+    dl_obj = restore_data_loader()
+    citation_graph = dl_obj.citation_graph
+
+
+    def get_community_labels(communities):
+        """
+
+        :param communities: list of sets.
+        :return: dict
+        """
+        out = dict()
+        for num, doc in enumerate(communities):
+            out.update(dict.fromkeys(doc, "community {}".format(num + 1)))
+
+        return out
+
+
+    communities_generator = community.girvan_newman(citation_graph)
+    first_level_communities = next(communities_generator)
+    second_level_communities = next(communities_generator)
+    third_level_communities = next(communities_generator)
+
+    print(len(first_level_communities))
+    print(get_community_labels(first_level_communities))
+    print()
+
+    print(len(second_level_communities))
+    print(get_community_labels(second_level_communities))
+    print()
+
+    print(len(third_level_communities))
+    print(get_community_labels(third_level_communities))
+    print()
+    print(third_level_communities)
