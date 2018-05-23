@@ -3,11 +3,14 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.svm import SVC
+
 from rpcc import features_graph
 from rpcc.load_data import restore_data_loader, DataLoader
 from rpcc.run_models import run_grid_search
 from rpcc.features_graph import create_combined_paper_authors_graph_features
-
+from sklearn.decomposition import PCA
+from sklearn.multiclass import OneVsRestClassifier
 if __name__ == "__main__":
     dl_obj = restore_data_loader()
 
@@ -28,24 +31,26 @@ if __name__ == "__main__":
     graph_based_pipe = Pipeline([
         ('scaling', StandardScaler()),
         # ('scaling', MinMaxScaler()),
-        # ('pca', PCA()),
-        # ('clf', SVC()),
+        ('pca', PCA()),
+        ('clf', SVC()),
         # ('clf', MultinomialNB())
-        ('clf', LogisticRegression())
+        # ('clf', OneVsRestClassifier(LogisticRegression()))
         # ('clf', RandomForestClassifier())
         # ('clf', GradientBoostingClassifier())
         # ('clf', RandomForestClassifier())
     ])
 
     params = {
-        'clf__penalty': ('l1', 'l2'),  # Logistic
-        'clf__C': (10, 1, 0.1, 0.01, 0.001),
+        # 'clf__penalty': ('l1', 'l2'),  # Logistic
+        'pca__n_components': (5, 10, 15, 20, None),
+
+        # 'clf__C': (0.1, 0.01, 0.001),
         # 'clf__n_neighbors': (3, 5, 7, 9, 10, 15, 20, 50, 100),
         # 'clf__leaf_size': (10, 20, 30, 50, 100),
         # 'clf__p': (2, 3, 5),
 
-        # 'clf__kernel': ('rbf', 'linear'),  # SVM
-        # 'clf__gamma': (0.1, 0.01, 0.001, 0.0001),  # SVM
+        'clf__kernel': ('rbf', 'linear'),  # SVM
+        'clf__gamma': (0.1, 0.01, 0.001, 0.0001),  # SVM
         # 'clf__p': (1, 2),  # 1: mahnatan, 2: eucledian # k-NN
         # 'clf__n_neighbors': (3, 4, 5, 6, 7, 8),  # k-NN
         # 'clf__learning_rate': (0.1, 0.01, 0.001),  # Gradient Boosting
