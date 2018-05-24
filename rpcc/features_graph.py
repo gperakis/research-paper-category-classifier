@@ -802,6 +802,16 @@ def create_combined_paper_authors_graph_features(load=False, save=True):
     return df
 
 
+def extract_k_core(graph):
+    """
+    This function extracts the nodes of the k-core sub-graph of a given graph.
+    :param graph:
+    :return:
+    """
+    core = nx.k_core(graph)
+    return core.nodes()
+
+
 if __name__ == "__main__":
     # cites_df = create_cites_graph_features(load=True, save=False)
     # print(cites_df)
