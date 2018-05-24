@@ -155,6 +155,8 @@ class DataLoader:
                                                 right_on='id',
                                                 how='left')
         train_val_enhanced.drop('id', axis=1)
+        # creating the abstract graphs for the train-validation abstracts
+        train_val_enhanced['abstract_graph'] = train_val_enhanced['abstract'].apply(self.generate_graph_from_text)
 
         self.train_validation_ids = list(train_val_df['Article'])
         self.x_train_validation = train_val_enhanced.drop('Journal', axis=1)
@@ -177,6 +179,8 @@ class DataLoader:
         test_ids = list(test_df['Article'])
 
         test_x = self.article_metadata[self.article_metadata['id'].isin(test_ids)].copy()
+        # creating the abstract graphs for the testing abstracts
+        test_x['abstract_graph'] = test_x['abstract'].apply(self.generate_graph_from_text)
 
         test_x.rename(columns={'id': 'Article'}, inplace=True)
 
@@ -282,7 +286,10 @@ class DataLoader:
             raise NotImplementedError('Must load Node INFO first.')
 
     @staticmethod
-    def generate_graph_from_text(text, window_size=3, directed=True, stop_word='english'):
+    def generate_graph_from_text(text,
+                                 window_size=3,
+                                 directed=True,
+                                 stop_word='english'):
         """
         This method creates a graph from the words of a text. At first splits the text in sentences
         and then parses each sentence through a  sliding window, generating a graph by joining the window tokens with
@@ -434,5 +441,5 @@ def restore_data_loader():
 
 
 if __name__ == "__main__":
-    dump_data_loader()
+    # dump_data_loader()
     obj = restore_data_loader()
