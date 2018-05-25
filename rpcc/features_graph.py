@@ -9,6 +9,9 @@ from networkx.algorithms import community
 from rpcc import setup_logger, PROCESSED_DATA_DIR
 from rpcc.load_data import restore_data_loader, DataLoader
 from pprint import pprint
+from rpcc import RAW_DATA_DIR
+from networkx.algorithms import bipartite
+import matplotlib.pyplot as plt
 
 logger = setup_logger(__name__)
 
@@ -812,43 +815,96 @@ def extract_k_core(graph):
     return core.nodes()
 
 
+def create_authors2article_bipartite_graph(df):
+    """
+
+    :return:
+    """
+
+    B = nx.Graph()
+
+    records = df.to_dict('records')
+
+    author_tokenizer = DataLoader.clean_up_authors
+    for rec in records[:100]:
+        cleaned_authors = list(filter(lambda x: len(x) > 2,
+                                      author_tokenizer(rec['authors'])))
+
+        if cleaned_authors:
+            weight = 1 / len(cleaned_authors)
+
+            edge_list = [(author, rec['id']) for author in cleaned_authors]
+            # B.add_nodes_from(cleaned_authors, bipartite=0)
+            # B.add_nodes_from([rec['id']], bipartite=1)
+            B.add_edges_from(edge_list, weight=weight)
+
+    return B
+
+
+def plot_bipartite_graph(graph):
+    """
+
+    :param graph:
+    :return:
+    """
+    x, y = bipartite.sets(graph)
+    pos = dict()
+    pos.update((n, (1, i)) for i, n in enumerate(x))  # put nodes from x at x=1
+    pos.update((n, (2, i)) for i, n in enumerate(y))  # put nodes from y at x=2
+    plt.figure(figsize=(40, 40))
+    nx.draw(graph, pos=pos, with_labels=True)
+    labels = nx.get_edge_attributes(graph, 'weight')
+    nx.draw_networkx_edge_labels(graph, pos, edge_labels=labels)
+    # plt.show()
+    plt.savefig("Graph.png", format="PNG")
+
+
 if __name__ == "__main__":
+    df1 = pd.read_csv(os.path.join(RAW_DATA_DIR,
+                                   'node_information.csv'), usecols=['id', 'authors'])
+    df1 = df1.where((pd.notnull(df1)), None)
+
+    bipartite_graph = create_authors2article_bipartite_graph(df1)
+
+    plot_bipartite_graph(bipartite_graph)
+
+
     # cites_df = create_cites_graph_features(load=True, save=False)
     # print(cites_df)
     # x = create_combined_paper_authors_graph_features(load=True, save=False)
     # print(x.head())
 
-    dl_obj = restore_data_loader()
-    citation_graph = dl_obj.citation_graph
+    # dl_obj = restore_data_loader()
+    # # citation_graph = dl_obj.citation_graph
+    # print(dl_obj.article_metadata)
 
-
-    def get_community_labels(communities):
-        """
-
-        :param communities: list of sets.
-        :return: dict
-        """
-        out = dict()
-        for num, doc in enumerate(communities):
-            out.update(dict.fromkeys(doc, "community {}".format(num + 1)))
-
-        return out
-
-
-    communities_generator = community.girvan_newman(citation_graph)
-    first_level_communities = next(communities_generator)
-    second_level_communities = next(communities_generator)
-    third_level_communities = next(communities_generator)
-
-    print(len(first_level_communities))
-    print(get_community_labels(first_level_communities))
-    print()
-
-    print(len(second_level_communities))
-    print(get_community_labels(second_level_communities))
-    print()
-
-    print(len(third_level_communities))
-    print(get_community_labels(third_level_communities))
-    print()
-    print(third_level_communities)
+    # def get_community_labels(communities):
+    #     """
+    #
+    #     :param communities: list of sets.
+    #     :return: dict
+    #     """
+    #     out = dict()
+    #     for num, doc in enumerate(communities):
+    #         out.update(dict.fromkeys(doc, "community {}".format(num + 1)))
+    #
+    #     return out
+    #
+    #
+    # communities_generator = community.girvan_newman(citation_graph)
+    # first_level_communities = next(communities_generator)
+    # second_level_communities = next(communities_generator)
+    # third_level_communities = next(communities_generator)
+    #
+    # print(len(first_level_communities))
+    # print(get_community_labels(first_level_communities))
+    # print()
+    #
+    # print(len(second_level_communities))
+    # print(get_community_labels(second_level_communities))
+    # print()
+    #
+    # print(len(third_level_communities))
+    # print(get_community_labels(third_level_communities))
+    # print()
+    # print(third_level_communities)

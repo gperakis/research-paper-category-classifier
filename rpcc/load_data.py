@@ -441,5 +441,5 @@ def restore_data_loader():
 
 
 if __name__ == "__main__":
-    # dump_data_loader()
+    dump_data_loader()
     obj = restore_data_loader()
