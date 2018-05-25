@@ -2,6 +2,7 @@ import itertools
 import os
 import pickle
 import re
+import unicodedata
 from collections import Counter
 
 import networkx as nx
@@ -12,6 +13,44 @@ from rpcc import RAW_DATA_DIR, PROCESSED_DATA_DIR
 from nltk import sent_tokenize
 from more_itertools import windowed, flatten
 from itertools import combinations
+
+
+def remove_accents(input_str):
+    """
+    This method removes any accents (stress removal) from any string.
+
+    :param input_str:
+    :return:
+    """
+    # Return the normal form for the Unicode string
+    nfkd_form = unicodedata.normalize('NFKD', input_str)
+
+    return u"".join([c for c in nfkd_form if not unicodedata.combining(c)]).lower()
+
+
+def tokenize_authors(authors_name):
+    """
+    This method splits text in tokens.
+
+    :param text: str. A string containing alphanumerics and special characters.
+    :return: list. An iterable of string tokens.
+    """
+
+    if authors_name:
+        # removes special characters and splits in:
+        # special characters,
+        # digits
+        # camel case
+        # pascal case.
+        label = re.sub(r"((?<=[a-z])[A-Z]|(?<!\A)[A-Z](?=[a-z])|([_.\-!']))", r' \1', authors_name)
+        name_list = re.sub('([_.\-!#])', "", label).split()
+        # Getting rid of any digits and other leftovers attached to the words of the list
+        name_list = [re.sub(r"(\d+)|([',){}=&`])", ' ', x) for x in name_list]
+        name_list = [item.strip().lower() for x in name_list for item in x.split()]
+        return name_list
+
+    else:
+        return []
 
 
 class DataLoader:
@@ -206,7 +245,7 @@ class DataLoader:
             cleaned_authors = temp_authors.split(',')
             cleaned_authors = [a.strip() for a in cleaned_authors]
 
-            return cleaned_authors
+            return list(filter(None, cleaned_authors))
 
     def __create_authors_label_props(self, train_val_enhanced):
         """
@@ -441,5 +480,22 @@ def restore_data_loader():
 
 
 if __name__ == "__main__":
-    dump_data_loader()
-    obj = restore_data_loader()
+    # dump_data_loader()
+    # obj = restore_data_loader()
+
+    splitter = DataLoader.clean_up_authors
+    info_file_name = os.path.join(RAW_DATA_DIR, "node_information.csv")
+
+    df = pd.read_csv(info_file_name)
+    df = df.where((pd.notnull(df)), None)
+
+    authors = df['authors']
+    for author in authors:
+        if author:
+            for a in splitter(author):
+                author_cleaned = ''.join(tokenize_authors(remove_accents(a)))
+                if 1 < len(author_cleaned) < 3:
+                    print(author)
+                    print(a)
+                    print(author_cleaned)
+                    print()
