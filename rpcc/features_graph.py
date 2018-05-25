@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 logger = setup_logger(__name__)
 
 
-class GraphToAdjacenyMatrixTransformer(BaseEstimator, TransformerMixin):
+class GraphToAdjacencyMatrixTransformer(BaseEstimator, TransformerMixin):
 
     def __init__(self, graph):
         """
@@ -488,7 +488,7 @@ def normalize_dict_values(d):
     return d
 
 
-def get_cliques_metadata(G, node, targets, props=None):
+def get_cliques_metadata(G, node):
     """
 
     :param G:
@@ -500,8 +500,7 @@ def get_cliques_metadata(G, node, targets, props=None):
     out = {'node_cliques_size_avg': 0,
            'node_cliques_size_std': 0,
            'node_cliques_size_max': 0,
-           'node_cliques_number': 0,
-           'node_cliques_props_avg': {}}
+           'node_cliques_number': 0}
 
     cliques = nx.cliques_containing_node(G, nodes=node)
 
@@ -513,31 +512,10 @@ def get_cliques_metadata(G, node, targets, props=None):
         out['node_cliques_size_max'] = max(clique_sizes)
         out['node_cliques_number'] = len(cliques)
 
-        if props:
-
-            all_clique_props = list()
-
-            for clique in cliques:
-                clique_props = list()
-                for n in clique:
-                    clique_props.append(props.get(n, dict.fromkeys(targets, 0.0)))
-
-                clique_avg_label_props = pd.DataFrame(clique_props).sum(axis=0).to_dict()
-                clique_avg_label_props = normalize_dict_values(clique_avg_label_props)
-
-                all_clique_props.append(clique_avg_label_props)
-
-            # taking thee average for all cliques.
-            avg_cliques_label_props = (pd.DataFrame(all_clique_props).sum(axis=0) / len(all_clique_props)).to_dict()
-            # normalizing the values of the dictionary
-            avg_cliques_label_props = normalize_dict_values(avg_cliques_label_props)
-
-            out['node_cliques_props_avg'] = avg_cliques_label_props
-
     return out
 
 
-def get_paper_authors_metadata(authors, authors_probs, targets, authors_graph):
+def get_paper_authors_metadata(authors, authors_graph):
     """
 
     :param authors:
@@ -549,26 +527,19 @@ def get_paper_authors_metadata(authors, authors_probs, targets, authors_graph):
 
     out = dict()
 
-    probs_results = list()
     clique_max_sizes = list()
     node_cliques_number_results = list()
     average_clique_sizes_results = list()
     std_clique_sizes_results = list()
     for author in authors:
         x = get_cliques_metadata(authors_graph,
-                                 node=author,
-                                 targets=targets,
-                                 props=authors_probs)
+                                 node=author)
 
-        probs_results.append(x['node_cliques_props_avg'])
         node_cliques_number_results.append(x['node_cliques_number'])
         average_clique_sizes_results.append(x['node_cliques_size_avg'])
 
         clique_max_sizes.append(x['node_cliques_size_max'])
         std_clique_sizes_results.append(x['node_cliques_size_std'])
-
-    avg_props = (pd.DataFrame(probs_results).sum(axis=0) / len(probs_results)).to_dict()
-    avg_props = normalize_dict_values(avg_props)
 
     total_max = max(clique_max_sizes)
     avg_max = np.mean(clique_max_sizes)
@@ -583,8 +554,6 @@ def get_paper_authors_metadata(authors, authors_probs, targets, authors_graph):
 
     paper_mean_std_clique_size = np.mean(std_clique_sizes_results)
     paper_std_std_clique_size = np.std(std_clique_sizes_results)
-
-    out.update(avg_props)
 
     out['paper_max_clique_size'] = total_max
     out['paper_avg_max_clique_size'] = avg_max
@@ -638,9 +607,7 @@ def create_paper_author_features(load=False, save=True):
 
         if co_authors:
             paper_features.update(get_paper_authors_metadata(co_authors,
-                                                             authors_probs,
-                                                             targets,
-                                                             authors_graph))
+                                                             authors_probs))
         results.append(paper_features)
 
         if save:
@@ -826,7 +793,7 @@ def create_authors2article_bipartite_graph(df):
     records = df.to_dict('records')
 
     author_tokenizer = DataLoader.clean_up_authors
-    for rec in records[:100]:
+    for rec in records:
         cleaned_authors = list(filter(lambda x: len(x) > 2,
                                       author_tokenizer(rec['authors'])))
 
@@ -860,14 +827,13 @@ def plot_bipartite_graph(graph):
 
 
 if __name__ == "__main__":
-    df1 = pd.read_csv(os.path.join(RAW_DATA_DIR,
-                                   'node_information.csv'), usecols=['id', 'authors'])
-    df1 = df1.where((pd.notnull(df1)), None)
-
     bipartite_graph = create_authors2article_bipartite_graph(df1)
 
-    plot_bipartite_graph(bipartite_graph)
+    print(nx.adjacency_matrix(G=bipartite_graph))
 
+    print(nx.adjacency_matrix(G=bipartite_graph).shape)
+
+    # print()
 
     # cites_df = create_cites_graph_features(load=True, save=False)
     # print(cites_df)
