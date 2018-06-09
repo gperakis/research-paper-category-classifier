@@ -1,13 +1,9 @@
 from keras import layers
-from keras import models
 from keras.utils import to_categorical
 from keras.models import Model
 from keras.layers import Input
-from keras.layers import LSTM
-from numpy import array
 import numpy as np
 from pprint import pprint
-from keras import backend as K
 
 from keras import backend as K
 
@@ -18,7 +14,12 @@ class MyModel:
                  voc_size: int,
                  max_sequence_length: int):
         """
+        MyModel class is the parent class in model implementation. It implements the fit of the model to the data and
+        stores the trained model and learning history. Also, it gives access to the data of a given layer.
 
+        :param emb_size: int, the length of the word embeddings
+        :param voc_size: int, the unique tokens of the corpus
+        :param max_sequence_length: int, the max number of tokens of the input the sentence
         """
         self.voc_size = voc_size
         self.emb_size = emb_size
@@ -28,16 +29,24 @@ class MyModel:
         self.history: list = None
 
     def build_model(self):
+        """
+        Abstract method implements model building with Keras
+        """
         return None
 
     def fit(self, X, y, epochs: int = 10):
         """
+        It fits a Keras model tot eh given data and returns the learning history.
 
-        :param X:
-        :param y:
-        :param model:
-        :param epochs:
-        :return:
+        :param X: Numpy array of training data (if the model has a single input),
+                or list of Numpy arrays (if the model has multiple inputs).
+        :param y: Numpy array of target (label) data (if the model has a single output),
+                or list of Numpy arrays (if the model has multiple outputs).
+        :param epochs: Integer. Number of epochs to train the model.
+        :return: A `History` object. Its `History.history` attribute is
+                a record of training loss values and metrics values
+                at successive epochs, as well as validation loss values
+                and validation metrics values.
         """
         self.history = self.model.fit(X,
                                       y,
@@ -46,35 +55,51 @@ class MyModel:
         return self.history
 
     def predict(self):
+        """
+        Abstract method implements model prediction with Keras
+        """
         pass
 
-    def get_last_layer_values_before_activation(self, x_input):
+    def get_layer_values(self, X, layer_index=-2):
         """
+        It accesses the given layer of object's model and returns the output of this layer.
 
-        :param x_input:
-        :return:
+        :param X: Numpy array of training data (if the model has a single input),
+                or list of Numpy arrays (if the model has multiple inputs).
+        :param layer_index: Integer. The index of the interested layer.
+        :return: Numpy array with the output values of network's interested layer.
         """
 
         inp = self.model.input  # input placeholder
-        outputs = [self.model.layers[-2].output]  # all layer outputs
+        outputs = [self.model.layers[layer_index].output]  # all layer outputs
 
         functor = K.function([inp] + [K.learning_phase()], outputs)  # evaluation function
-        layer_outs = functor([x_input, 1.])
+        layer_outs = functor([X, 1.])
 
         return layer_outs[0]
 
 
 class AbstractEmbedding(MyModel):
-    def __init__(self, emb_size: int, voc_size: int, max_sequence_length: int):
+    def __init__(self,
+                 emb_size: int,
+                 voc_size: int,
+                 max_sequence_length: int):
+        """
+        AbstractEmbedding class implements an LSTM model on a given corpus.
+
+        We feed to the model of this class data of the abstracts of research papers. For each observation,
+        we have transformed the corpus to an array of integers (output of Keras tokenizer).
+        The labels of the observations stand for the category of the domain of the paper.
+
+        :param emb_size: int, the length of the word embeddings
+        :param voc_size: int, the unique tokens of the corpus
+        :param max_sequence_length: int, the max number of tokens of the input the sentence
+        """
         super().__init__(emb_size, voc_size, max_sequence_length)
 
     def build_model(self):
         """
-
-        :param max_sequence_length:
-        :param emb_size:
-        :param voc_size:
-        :return:
+        Creates and compiles an lstm model with Keras deep learning library
         """
 
         # define model
@@ -95,23 +120,92 @@ class AbstractEmbedding(MyModel):
 
         self.model = model
 
+
 class TitleEmbedding(MyModel):
-    def __init__(self, emb_size: int, voc_size: int, max_sequence_length: int):
+    def __init__(self,
+                 emb_size: int,
+                 voc_size: int,
+                 max_sequence_length: int):
+        """
+        TitleEmbedding class implements an LSTM model on a given corpus.
+
+        We feed to the model of this class data of the titles of research papers. For each observation,
+        we have transformed the title corpus to an array of integers (output of Keras tokenizer).
+        The labels of the observations stand for the category of the domain of the paper.
+
+        :param emb_size: int, the length of the word embeddings
+        :param voc_size: int, the unique tokens of the corpus
+        :param max_sequence_length: int, the max number of tokens of the input the sentence
+        """
         super().__init__(emb_size, voc_size, max_sequence_length)
 
     def build_model(self):
-        pass
+        """
+        Creates and compiles an lstm model with Keras deep learning library
+        """
+
+        # define model
+        text_input = Input(shape=(self.max_sequence_length,), dtype='int32', name='text')
+        embedded_text = layers.Embedding(self.voc_size, self.emb_size)(text_input)
+        encoded_text1 = layers.LSTM(16, return_sequences=True)(embedded_text)
+        encoded_text2 = layers.LSTM(16)(encoded_text1)
+
+        category = layers.Dense(2, activation='sigmoid')(encoded_text2)
+
+        model = Model(text_input, [category])
+
+        model.compile(optimizer='rmsprop',
+                      loss='binary_crossentropy',
+                      metrics=['acc'])
+
+        print(model.summary())
+
+        self.model = model
+
+
+class FeedForward(MyModel):
+    def __init__(self,
+                 emb_size: int,
+                 voc_size: int,
+                 max_sequence_length: int):
+        """
+        FeedForward class implements a feed forward model with the use of Dense layers of Keras deep learning library.
+
+        :param emb_size: int, the length of the word embeddings
+        :param voc_size: int, the unique tokens of the corpus
+        :param max_sequence_length: int, the max number of tokens of the input the sentence
+        """
+        super().__init__(emb_size, voc_size, max_sequence_length)
+
+    def build_model(self):
+        """
+        Creates and compiles an lstm model with Keras deep learning library
+        """
+
+        # define model
+        graph_input = Input(shape=(self.max_sequence_length,), dtype='int32', name='graph')
+        abstract_input = Input(shape=(self.max_sequence_length,), dtype='int32', name='abstract')
+        title_input = Input(shape=(self.max_sequence_length,), dtype='int32', name='title')
+        author_input = Input(shape=(self.max_sequence_length,), dtype='int32', name='author')
+
+        merged_input = layers.merge(inputs=[graph_input, abstract_input, title_input, author_input])
+
+        deep1 = layers.Dense(128, activation='relu')(merged_input)
+        deep2 = layers.Dense(64, activation='relu')(deep1)
+        category = layers.Dense(28, activation='softmax')(deep2)
+
+        model = Model(merged_input, [category])
+
+        model.compile(optimizer='rmsprop',
+                      loss='categorical_crossentropy',
+                      metrics=['acc'])
+
+        print(model.summary())
+
+        self.model = model
 
 
 class KCoreEmbedding(MyModel):
-    def __init__(self, emb_size: int, voc_size: int, max_sequence_length: int):
-        super().__init__(emb_size, voc_size, max_sequence_length)
-
-    def build_model(self):
-        pass
-
-
-class AuthorEmbedding(MyModel):
     def __init__(self, emb_size: int, voc_size: int, max_sequence_length: int):
         super().__init__(emb_size, voc_size, max_sequence_length)
 
@@ -124,11 +218,11 @@ if __name__ == '__main__':
     num_samples = 100
     max_length = 100
 
-    X = np.random.randint(1,
-                          text_vocabulary_size,
-                          size=(num_samples, max_length))
+    X_ = np.random.randint(1,
+                           text_vocabulary_size,
+                           size=(num_samples, max_length))
 
-    y = to_categorical(np.random.randint(low=0, high=2, size=num_samples))
+    y_ = to_categorical(np.random.randint(low=0, high=2, size=num_samples))
 
     obj = AbstractEmbedding(emb_size=10,
                             voc_size=text_vocabulary_size,
@@ -136,9 +230,9 @@ if __name__ == '__main__':
 
     obj.build_model()
 
-    obj.fit(X, y, 15)
+    obj.fit(X_, y_, 15)
 
-    asdf = obj.get_last_layer_values_before_activation(x_input=X)
+    asdf = obj.get_layer_values(X=X_)
 
     pprint(asdf)
 
