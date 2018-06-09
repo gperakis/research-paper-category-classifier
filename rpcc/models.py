@@ -1,66 +1,101 @@
 from keras import layers
 from keras import models
-
+from keras.utils import to_categorical
 from keras.models import Model
 from keras.layers import Input
 from keras.layers import LSTM
 from numpy import array
 import numpy as np
 from pprint import pprint
+from keras import backend as K
 
 from keras import backend as K
 
 
-class Model:
+class MyModel:
     def __init__(self):
+        """
+
+        """
+        self.model: Model = None
+        self.history: list = None
+
+    def build_model(self):
         pass
 
-    def fit(self, X, y, model):
-        history = model.fit(X, y,
-                            epochs=10,
-                            batch_size=128)
+    def fit(self, X, y, model, epochs: int = 10):
+        """
 
-        last_layer_tensor = model.layers[2].output
-
-        return history
+        :param X:
+        :param y:
+        :param model:
+        :param epochs:
+        :return:
+        """
+        self.history = self.model.fit(X,
+                                      y,
+                                      epochs=epochs,
+                                      batch_size=128)
+        return self.history
 
     def predict(self):
         pass
 
+    def get_last_layer_values_before_activation(self, x_input):
+        """
 
-class AbstractEmbedding(Model):
+        :param x_input:
+        :return:
+        """
+
+        inp = self.model.input  # input placeholder
+        outputs = [self.model.layers[-2].output]  # all layer outputs
+
+        functor = K.function([inp] + [K.learning_phase()], outputs)  # evaluation function
+        layer_outs = functor([x_input, 1.])
+
+        return layer_outs[0]
+
+
+class AbstractEmbedding(MyModel):
     def __init__(self):
         super().__init__()
 
     @staticmethod
-    def build_model(max_sequence_length: int, emb_size: int = 10):
-        # sequence_input = layers.Input(shape=(max_sequence_length,), dtype='int32')
+    def build_model(max_sequence_length: int,
+                    emb_size: int,
+                    voc_size: int):
+        """
 
-        # model = models.Sequential()
-        # model.add(layers.LSTM(5, return_sequences=True, input_shape=(max_sequence_length, 1)))
-        # model.add(layers.LSTM(3))
-        # model.add(layers.Dense(1, activation='sigmoid'))
-        #
-        # model.compile(optimizer='rmsprop',
-        #               loss='binary_crossentropy',
-        #               metrics=['acc'])
-        #
-        # print("Model Fitting - Bidirectional LSTM")
-        # print(model.summary())
+        :param max_sequence_length:
+        :param emb_size:
+        :param voc_size:
+        :return:
+        """
 
         # define model
-        inputs1 = Input(shape=(max_sequence_length,), dtype='int32')
-        embeddings = layers.Embedding(None, emb_size)(inputs1)
-        lstm1 = LSTM(5, return_sequences=True)(embeddings)
-        lstm2 = LSTM(3)(lstm1)
-        dense = layers.Dense(1, activation='sigmoid')(lstm2)
+        text_input = Input(shape=(max_sequence_length,), dtype='int32', name='text')
+        embedded_text = layers.Embedding(voc_size, emb_size)(text_input)
+        encoded_text1 = layers.LSTM(32, return_sequences=True)(embedded_text)
+        encoded_text2 = layers.LSTM(32)(encoded_text1)
 
-        model = Model(inputs=inputs1, outputs=[lstm2, dense])
+        category = layers.Dense(2, activation='sigmoid')(encoded_text2)
 
-        return model
+        model = Model(text_input, [category])
+
+        model.compile(optimizer='rmsprop',
+                      loss='binary_crossentropy',
+                      metrics=['acc'])
+
+        print(model.summary())
+
+        out = {'model': model,
+               'last_lstm': encoded_text2}
+
+        return out
 
 
-class TitleEmbedding(Model):
+class TitleEmbedding(MyModel):
     def __init__(self):
         super().__init__()
 
@@ -68,7 +103,7 @@ class TitleEmbedding(Model):
         pass
 
 
-class KCoreEmbedding(Model):
+class KCoreEmbedding(MyModel):
     def __init__(self):
         super().__init__()
 
@@ -76,7 +111,7 @@ class KCoreEmbedding(Model):
         pass
 
 
-class AuthorEmbedding(Model):
+class AuthorEmbedding(MyModel):
     def __init__(self):
         super().__init__()
 
@@ -85,15 +120,21 @@ class AuthorEmbedding(Model):
 
 
 if __name__ == '__main__':
-    X = np.array([
-        [13, 28, 18, 7, 9, 5],
-        [29, 44, 38, 15, 26, 22],
-        [27, 40, 31, 29, 32, 1]]).reshape((3, 6, 1))
+    import numpy as np
 
-    pprint(X)
+    text_vocabulary_size = 10000
+    num_samples = 100
+    max_length = 100
 
-    y = np.array(['1', '0', '0'])
+    X = np.random.randint(1,
+                          text_vocabulary_size,
+                          size=(num_samples, max_length))
+
+    y = to_categorical(np.random.randint(low=0, high=2, size=num_samples))
 
     obj = AbstractEmbedding()
-    model = obj.build_model(6)
-    obj.fit(X, y, model)
+    meta = obj.build_model(max_sequence_length=max_length,
+                           emb_size=10,
+                           voc_size=text_vocabulary_size)
+
+    # trained_model = obj.fit(X, y, meta['model'])
