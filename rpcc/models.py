@@ -1,6 +1,10 @@
 from keras import layers
 from keras import models
 
+from keras.models import Model
+from keras.layers import Input
+from keras.layers import LSTM
+from numpy import array
 import numpy as np
 from pprint import pprint
 
@@ -29,20 +33,29 @@ class AbstractEmbedding(Model):
         super().__init__()
 
     @staticmethod
-    def build_model(max_sequence_length):
+    def build_model(max_sequence_length: int, emb_size: int = 10):
         # sequence_input = layers.Input(shape=(max_sequence_length,), dtype='int32')
 
-        model = models.Sequential()
-        model.add(layers.LSTM(5, return_sequences=True, input_shape=(max_sequence_length, 1)))
-        model.add(layers.LSTM(3))
-        model.add(layers.Dense(1, activation='sigmoid'))
+        # model = models.Sequential()
+        # model.add(layers.LSTM(5, return_sequences=True, input_shape=(max_sequence_length, 1)))
+        # model.add(layers.LSTM(3))
+        # model.add(layers.Dense(1, activation='sigmoid'))
+        #
+        # model.compile(optimizer='rmsprop',
+        #               loss='binary_crossentropy',
+        #               metrics=['acc'])
+        #
+        # print("Model Fitting - Bidirectional LSTM")
+        # print(model.summary())
 
-        model.compile(optimizer='rmsprop',
-                      loss='binary_crossentropy',
-                      metrics=['acc'])
+        # define model
+        inputs1 = Input(shape=(max_sequence_length,), dtype='int32')
+        embeddings = layers.Embedding(None, emb_size)(inputs1)
+        lstm1 = LSTM(5, return_sequences=True)(embeddings)
+        lstm2 = LSTM(3)(lstm1)
+        dense = layers.Dense(1, activation='sigmoid')(lstm2)
 
-        print("Model Fitting - Bidirectional LSTM")
-        print(model.summary())
+        model = Model(inputs=inputs1, outputs=[lstm2, dense])
 
         return model
 
