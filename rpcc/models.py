@@ -13,17 +13,24 @@ from keras import backend as K
 
 
 class MyModel:
-    def __init__(self):
+    def __init__(self,
+                 emb_size: int,
+                 voc_size: int,
+                 max_sequence_length: int):
         """
 
         """
+        self.voc_size = voc_size
+        self.emb_size = emb_size
+        self.max_sequence_length = max_sequence_length
+
         self.model: Model = None
         self.history: list = None
 
     def build_model(self):
-        pass
+        return None
 
-    def fit(self, X, y, model, epochs: int = 10):
+    def fit(self, X, y, epochs: int = 10):
         """
 
         :param X:
@@ -58,13 +65,10 @@ class MyModel:
 
 
 class AbstractEmbedding(MyModel):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, emb_size: int, voc_size: int, max_sequence_length: int):
+        super().__init__(emb_size, voc_size, max_sequence_length)
 
-    @staticmethod
-    def build_model(max_sequence_length: int,
-                    emb_size: int,
-                    voc_size: int):
+    def build_model(self):
         """
 
         :param max_sequence_length:
@@ -74,8 +78,8 @@ class AbstractEmbedding(MyModel):
         """
 
         # define model
-        text_input = Input(shape=(max_sequence_length,), dtype='int32', name='text')
-        embedded_text = layers.Embedding(voc_size, emb_size)(text_input)
+        text_input = Input(shape=(self.max_sequence_length,), dtype='int32', name='text')
+        embedded_text = layers.Embedding(self.voc_size, self.emb_size)(text_input)
         encoded_text1 = layers.LSTM(32, return_sequences=True)(embedded_text)
         encoded_text2 = layers.LSTM(32)(encoded_text1)
 
@@ -89,39 +93,33 @@ class AbstractEmbedding(MyModel):
 
         print(model.summary())
 
-        out = {'model': model,
-               'last_lstm': encoded_text2}
-
-        return out
-
+        self.model = model
 
 class TitleEmbedding(MyModel):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, emb_size: int, voc_size: int, max_sequence_length: int):
+        super().__init__(emb_size, voc_size, max_sequence_length)
 
     def build_model(self):
         pass
 
 
 class KCoreEmbedding(MyModel):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, emb_size: int, voc_size: int, max_sequence_length: int):
+        super().__init__(emb_size, voc_size, max_sequence_length)
 
     def build_model(self):
         pass
 
 
 class AuthorEmbedding(MyModel):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, emb_size: int, voc_size: int, max_sequence_length: int):
+        super().__init__(emb_size, voc_size, max_sequence_length)
 
     def build_model(self):
         pass
 
 
 if __name__ == '__main__':
-    import numpy as np
-
     text_vocabulary_size = 10000
     num_samples = 100
     max_length = 100
@@ -132,9 +130,16 @@ if __name__ == '__main__':
 
     y = to_categorical(np.random.randint(low=0, high=2, size=num_samples))
 
-    obj = AbstractEmbedding()
-    meta = obj.build_model(max_sequence_length=max_length,
-                           emb_size=10,
-                           voc_size=text_vocabulary_size)
+    obj = AbstractEmbedding(emb_size=10,
+                            voc_size=text_vocabulary_size,
+                            max_sequence_length=max_length)
 
-    # trained_model = obj.fit(X, y, meta['model'])
+    obj.build_model()
+
+    obj.fit(X, y, 15)
+
+    asdf = obj.get_last_layer_values_before_activation(x_input=X)
+
+    pprint(asdf)
+
+    pprint(asdf.shape)
