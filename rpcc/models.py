@@ -183,20 +183,20 @@ class FeedForward(MyModel):
         """
 
         # define model
-        graph_input = Input(shape=(self.max_sequence_length,), dtype='int32', name='graph')
-        abstract_input = Input(shape=(self.max_sequence_length,), dtype='int32', name='abstract')
-        title_input = Input(shape=(self.max_sequence_length,), dtype='int32', name='title')
-        author_input = Input(shape=(self.max_sequence_length,), dtype='int32', name='author')
+        graph_input = Input(shape=(self.max_sequence_length,), dtype='float32', name='graph')
+        abstract_input = Input(shape=(self.max_sequence_length,), dtype='float32', name='abstract')
+        title_input = Input(shape=(self.max_sequence_length,), dtype='float32', name='title')
+        author_input = Input(shape=(self.max_sequence_length,), dtype='float32', name='author')
 
-        merged_input = layers.merge(inputs=[graph_input, abstract_input, title_input, author_input])
+        merged_input = layers.concatenate([graph_input, abstract_input, title_input, author_input], axis=-1)
 
         deep1 = layers.Dense(128, activation='relu')(merged_input)
         deep2 = layers.Dense(64, activation='relu')(deep1)
         category = layers.Dense(28, activation='softmax')(deep2)
 
-        model = Model(merged_input, [category])
+        model = Model([graph_input, abstract_input, title_input, author_input], category)
 
-        model.compile(optimizer='rmsprop',
+        model.compile(optimizer='adam',
                       loss='categorical_crossentropy',
                       metrics=['acc'])
 
@@ -218,22 +218,26 @@ if __name__ == '__main__':
     num_samples = 100
     max_length = 100
 
-    X_ = np.random.randint(1,
-                           text_vocabulary_size,
-                           size=(num_samples, max_length))
+    # X_ = np.random.randint(1,
+    #                        text_vocabulary_size,
+    #                        size=(num_samples, max_length))
+    #
+    # y_ = to_categorical(np.random.randint(low=0, high=2, size=num_samples))
+    #
+    # obj = AbstractEmbedding(emb_size=10,
+    #                         voc_size=text_vocabulary_size,
+    #                         max_sequence_length=max_length)
+    #
+    # obj.build_model()
+    #
+    # obj.fit(X_, y_, 15)
+    #
+    # asdf = obj.get_layer_values(X=X_)
+    #
+    # pprint(asdf)
+    #
+    # pprint(asdf.shape)
 
-    y_ = to_categorical(np.random.randint(low=0, high=2, size=num_samples))
-
-    obj = AbstractEmbedding(emb_size=10,
-                            voc_size=text_vocabulary_size,
-                            max_sequence_length=max_length)
+    obj = FeedForward(10, 10000, 100)
 
     obj.build_model()
-
-    obj.fit(X_, y_, 15)
-
-    asdf = obj.get_layer_values(X=X_)
-
-    pprint(asdf)
-
-    pprint(asdf.shape)
