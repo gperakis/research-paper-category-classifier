@@ -826,7 +826,7 @@ def create_authors2article_bipartite_graph(df):
     records = df.to_dict('records')
 
     author_tokenizer = DataLoader.clean_up_authors
-    for rec in records[:100]:
+    for rec in records:
         cleaned_authors = list(filter(lambda x: len(x) > 2,
                                       author_tokenizer(rec['authors'])))
 
@@ -839,6 +839,32 @@ def create_authors2article_bipartite_graph(df):
             B.add_edges_from(edge_list, weight=weight)
 
     return B
+
+
+def get_authors2titles(df):
+    """
+
+    :return:
+    """
+
+    records = df.to_dict('records')
+
+    authors_resutls = list()
+    author_tokenizer = DataLoader.clean_up_authors
+    for rec in records:
+        cleaned_authors = list(filter(lambda x: len(x) > 2,
+                                      author_tokenizer(rec['authors'])))
+
+        for auth in cleaned_authors:
+            d = {'author': auth, 'title': rec['title']}
+            authors_resutls.append(d)
+
+    authors_df = pd.DataFrame(authors_resutls).dropna(subset=['title'])
+
+    grouped = authors_df.groupby('author').agg({'title': lambda x: ' '.join(list(x))})
+
+    return grouped
+
 
 
 def plot_bipartite_graph(graph):
@@ -861,13 +887,14 @@ def plot_bipartite_graph(graph):
 
 if __name__ == "__main__":
     df1 = pd.read_csv(os.path.join(RAW_DATA_DIR,
-                                   'node_information.csv'), usecols=['id', 'authors'])
+                                   'node_information.csv'), usecols=['id', 'authors', 'title'])
     df1 = df1.where((pd.notnull(df1)), None)
 
-    bipartite_graph = create_authors2article_bipartite_graph(df1)
+    # bipartite_graph = create_authors2article_bipartite_graph(df1)
+    #
+    # plot_bipartite_graph(bipartite_graph)
 
-    plot_bipartite_graph(bipartite_graph)
-
+    get_authors2titles(df1)
 
     # cites_df = create_cites_graph_features(load=True, save=False)
     # print(cites_df)
