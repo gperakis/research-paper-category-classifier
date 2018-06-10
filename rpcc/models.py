@@ -4,6 +4,7 @@ from keras.models import Model
 from keras.layers import Input
 import numpy as np
 from pprint import pprint
+from keras import regularizers
 
 from keras import backend as K
 
@@ -213,6 +214,55 @@ class KCoreEmbedding(MyModel):
         pass
 
 
+def build_model(inputs: list, dropout: float = 0.2, regularizer: tuple = ('l2', 0.01)):
+    """
+
+    :param inputs:
+    :param dropout:
+    :param regularizer:
+    :return:
+    """
+    model_inputs_list = list()
+
+    if regularizer[0] == 'l2':
+        kernel_reg = regularizers.l2(regularizer[1])
+    else:
+        kernel_reg = regularizers.l1(regularizer[1])
+
+    for doc in inputs:
+        model_inputs_list.append(Input(shape=(doc['length'],),
+                                       dtype='float32',
+                                       name=doc['input_name']))
+
+    merged_input = layers.concatenate(model_inputs_list, axis=-1)
+
+    deep1 = layers.Dense(128,
+                         activation='relu',
+                         kernel_initializer='glorot_normal',
+                         kernel_regularizer=kernel_reg)(merged_input)
+    deep1 = layers.BatchNormalization()(deep1)
+    deep1 = layers.Dropout(dropout)(deep1)
+
+    deep2 = layers.Dense(64, activation='relu',
+                         kernel_initializer='glorot_normal',
+                         kernel_regularizer=kernel_reg)(deep1)
+
+    deep2 = layers.BatchNormalization()(deep2)
+    deep2 = layers.Dropout(dropout)(deep2)
+
+    category = layers.Dense(28, activation='softmax')(deep2)
+
+    model = Model(model_inputs_list, category)
+
+    model.compile(optimizer='adam',
+                  loss='categorical_crossentropy',
+                  metrics=['acc'])
+
+    print(model.summary())
+
+    return model
+
+
 if __name__ == '__main__':
     text_vocabulary_size = 10000
     num_samples = 100
@@ -241,3 +291,11 @@ if __name__ == '__main__':
     obj = FeedForward(10, 10000, 100)
 
     obj.build_model()
+
+    model_inputs = [
+        {'input_name': 'graph', 'length': 50, 'weight': 1},
+        {'input_name': 'abstract', 'length': 50, 'weight': 1},
+        {'input_name': 'title', 'length': 50, 'weight': 1},
+        {'input_name': 'author', 'length': 50, 'weight': 1}]
+
+    x = build_model(inputs=model_inputs)
