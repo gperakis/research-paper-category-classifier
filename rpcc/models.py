@@ -214,7 +214,9 @@ class KCoreEmbedding(MyModel):
         pass
 
 
-def build_model(inputs: list, dropout: float = 0.2, regularizer: tuple = ('l2', 0.01)):
+def build_model(inputs: list,
+                dropout: float = 0.2,
+                regularizer: tuple = ('l2', 0.01)):
     """
 
     :param inputs:
