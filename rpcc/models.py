@@ -1,15 +1,11 @@
-from keras import layers
-from keras.utils import to_categorical
-from keras.models import Model
-from keras.layers import Input
-import numpy as np
-from pprint import pprint
-from keras import regularizers
-
 from keras import backend as K
+from keras import layers
+from keras import regularizers
+from keras.layers import Input
+from keras.models import Model
 
 
-class MyModel:
+class ModelNN:
     def __init__(self,
                  emb_size: int,
                  voc_size: int,
@@ -81,7 +77,7 @@ class MyModel:
         return layer_outs[0]
 
 
-class AbstractEmbedding(MyModel):
+class AbstractEmbedding(ModelNN):
     def __init__(self,
                  emb_size: int,
                  voc_size: int,
@@ -123,7 +119,7 @@ class AbstractEmbedding(MyModel):
         self.model = model
 
 
-class TitleEmbedding(MyModel):
+class TitleEmbedding(ModelNN):
     def __init__(self,
                  emb_size: int,
                  voc_size: int,
@@ -165,7 +161,7 @@ class TitleEmbedding(MyModel):
         self.model = model
 
 
-class FeedForward(MyModel):
+class FeedForward(ModelNN):
     def __init__(self,
                  emb_size: int,
                  voc_size: int,
@@ -207,7 +203,7 @@ class FeedForward(MyModel):
         self.model = model
 
 
-class KCoreEmbedding(MyModel):
+class KCoreEmbedding(ModelNN):
     def __init__(self, emb_size: int, voc_size: int, max_sequence_length: int):
         super().__init__(emb_size, voc_size, max_sequence_length)
 
