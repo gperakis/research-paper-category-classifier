@@ -28,6 +28,7 @@ class MyModel:
 
         self.model: Model = None
         self.history: list = None
+        self.features = None
 
     def build_model(self):
         """
@@ -55,7 +56,7 @@ class MyModel:
                                       batch_size=128)
         return self.history
 
-    def predict(self):
+    def predict(self, X, dump=False):
         """
         Abstract method implements model prediction with Keras
         """
