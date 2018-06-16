@@ -1,22 +1,21 @@
 import os
 
+import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import pandas as pd
+from networkx.algorithms import bipartite
 from sklearn.base import BaseEstimator, TransformerMixin
 from tqdm import tqdm
-from networkx.algorithms import community
+
+from rpcc import RAW_DATA_DIR
 from rpcc import setup_logger, PROCESSED_DATA_DIR
 from rpcc.load_data import restore_data_loader, DataLoader
-from pprint import pprint
-from rpcc import RAW_DATA_DIR
-from networkx.algorithms import bipartite
-import matplotlib.pyplot as plt
 
 logger = setup_logger(__name__)
 
 
-class GraphToAdjacenyMatrixTransformer(BaseEstimator, TransformerMixin):
+class GraphToAdjacencyMatrixTransformer(BaseEstimator, TransformerMixin):
 
     def __init__(self, graph):
         """

@@ -1,18 +1,17 @@
 import itertools
 import re
 from itertools import combinations
+from random import choice
 
 import networkx as nx
 import pandas as pd
+from gensim.models import Word2Vec
+from keras.preprocessing.sequence import pad_sequences
+from keras.preprocessing.text import Tokenizer
 from more_itertools import windowed, flatten
+from networkx import DiGraph
 from nltk import sent_tokenize
 from sklearn.feature_extraction.text import CountVectorizer
-from keras.preprocessing.text import Tokenizer
-from keras.preprocessing.sequence import pad_sequences
-from networkx.algorithms.community.label_propagation import label_propagation_communities
-from random import choice
-from random import seed
-from gensim.models import Word2Vec
 
 
 class FeatureExtractor:
@@ -69,6 +68,61 @@ class TextFeaturesExtractor(FeatureExtractor):
         :param input_data:
         """
         super().__init__(input_data)
+
+    @staticmethod
+    def clean_up_authors(authors):
+        """
+        Extract author names from a string
+
+        :param authors: str. the authors fo the article
+        :return: list of str. with the authors of the article, is applicable
+        """
+        if authors is None:
+            return []
+
+        else:
+            temp_authors = re.sub(r'\((.*?)\)', '', authors)
+            temp_authors = re.sub(r'\((.*?,)', '', temp_authors)
+            temp_authors = re.sub(r'\((.*?)', '', temp_authors)
+
+            cleaned_authors = temp_authors.split(',')
+            cleaned_authors = [a.strip() for a in cleaned_authors]
+
+            return cleaned_authors
+
+    def __create_authors_graph(self, authors: iter) -> nx.Graph:
+        """
+        Creates a networkX undirected network object with weighted edges that
+        stores the connections between the authors
+
+        :param authors: An iterable of strings containing multiple authors in each string.
+        :return: A networkX graph of all the connections between the authors.
+        """
+        if isinstance(authors, pd.Series):
+
+            # instantiating a simple Graph.
+            G = nx.Graph()
+
+            for authors_str in authors:
+                # cleaning up the authors. Returns a list of authors.
+                cleaned_authors = self.clean_up_authors(authors_str)
+                # only keeping those authors that have length over 2 characters.
+                co_authors = [author for author in cleaned_authors if len(author) > 2]
+
+                if co_authors:
+                    # extracting all author combinations per pair.
+                    for comb in itertools.combinations(co_authors, 2):
+
+                        # if there is already an edge between the two authors, add more weight.
+                        if G.has_edge(comb[0], comb[1]):
+                            G[comb[0]][comb[1]]['weight'] += 1
+                        else:
+                            G.add_edge(comb[0], comb[1], weight=1)
+
+            return G
+
+        else:
+            raise NotImplementedError('Must load Node INFO first.')
 
     @staticmethod
     def pre_process_text(texts: iter) -> dict:
@@ -208,72 +262,17 @@ class TextFeaturesExtractor(FeatureExtractor):
         return G
 
 
-class GraphFeaturesExtractor(FeatureExtractor):
+class GraphFeaturesExtractor:
+    graph: DiGraph
 
-    def __init__(self, input_data):
+    def __init__(self, graph):
         """
 
-        :param input_data:
+        :param graph:
         """
-        super().__init__(input_data)
+        self.graph = graph
 
-    @staticmethod
-    def clean_up_authors(authors):
-        """
-        Extract author names from a string
-
-        :param authors: str. the authors fo the article
-        :return: list of str. with the authors of the article, is applicable
-        """
-        if authors is None:
-            return []
-
-        else:
-            temp_authors = re.sub(r'\((.*?)\)', '', authors)
-            temp_authors = re.sub(r'\((.*?,)', '', temp_authors)
-            temp_authors = re.sub(r'\((.*?)', '', temp_authors)
-
-            cleaned_authors = temp_authors.split(',')
-            cleaned_authors = [a.strip() for a in cleaned_authors]
-
-            return cleaned_authors
-
-    def __create_authors_graph(self, authors: iter) -> nx.Graph:
-        """
-        Creates a networkX undirected network object with weighted edges that
-        stores the connections between the authors
-
-        :param authors: An iterable of strings containing multiple authors in each string.
-        :return: A networkX graph of all the connections between the authors.
-        """
-        if isinstance(authors, pd.Series):
-
-            # instantiating a simple Graph.
-            G = nx.Graph()
-
-            for authors_str in authors:
-                # cleaning up the authors. Returns a list of authors.
-                cleaned_authors = self.clean_up_authors(authors_str)
-                # only keeping those authors that have length over 2 characters.
-                co_authors = [author for author in cleaned_authors if len(author) > 2]
-
-                if co_authors:
-                    # extracting all author combinations per pair.
-                    for comb in itertools.combinations(co_authors, 2):
-
-                        # if there is already an edge between the two authors, add more weight.
-                        if G.has_edge(comb[0], comb[1]):
-                            G[comb[0]][comb[1]]['weight'] += 1
-                        else:
-                            G.add_edge(comb[0], comb[1], weight=1)
-
-            return G
-
-        else:
-            raise NotImplementedError('Must load Node INFO first.')
-
-    @staticmethod
-    def random_walk(graph: nx.DiGraph,
+    def random_walk(self,
                     node: int,
                     walk_length: int) -> list:
         """
@@ -284,12 +283,12 @@ class GraphFeaturesExtractor(FeatureExtractor):
         :return:
         """
 
-        assert node in graph.nodes()
+        assert node in self.graph.nodes()
         walk = [node]
 
         for i in range(walk_length):
             # create a list of the successors for the given node
-            successors = list(graph.successors(walk[-1]))
+            successors = list(self.graph.successors(walk[-1]))
             if successors:
                 walk.append(choice(successors))
             else:
@@ -299,28 +298,25 @@ class GraphFeaturesExtractor(FeatureExtractor):
         return walk
 
     def generate_walks(self,
-                       graph: nx.DiGraph,
                        num_walks: int,
                        walk_length: int) -> list:
         """
         This method for a given graph creates a number of "num_walks" for all nodes of the given walk length
 
-        :param graph: A network X directed Graph
         :param num_walks: Int. The number of walks to be extracted for each node.
         :param walk_length: Int. The size of the of walk length
         :return:
         """
         walks = list()
 
-        for node in graph.nodes():
+        for node in self.graph.nodes():
             for n_walk in range(num_walks):
-                walk_list = self.random_walk(G, node=node, walk_length=walk_length)
+                walk_list = self.random_walk(node=node, walk_length=walk_length)
                 walks.append(walk_list)
 
         return walks
 
-    @staticmethod
-    def learn_embeddings(graph: nx.DiGraph,
+    def learn_embeddings(self,
                          walks: iter,
                          window_size: int,
                          d: int):
@@ -344,22 +340,138 @@ class GraphFeaturesExtractor(FeatureExtractor):
 
         embeddings = dict()
 
-        for node in graph.nodes():
+        for node in self.graph.nodes():
             embeddings[node] = model[node]
 
         return embeddings
 
+    @property
+    def calculate_avg_neighbour_degree(self) -> dict:
+        """
+
+        :return:
+        """
+        return nx.average_neighbor_degree(self.graph)
+
+    @property
+    def calculate_out_degree(self) -> dict:
+        """
+
+        :return:
+        """
+        return {t[0]: t[1] for t in self.graph.out_degree}
+
+    @property
+    def calculate_in_degree(self) -> dict:
+        """
+
+        :return:
+        """
+        return {t[0]: t[1] for t in self.graph.in_degree}
+
+    @property
+    def calculate_undirected_degree(self) -> dict:
+        """
+
+        :return:
+        """
+        return {t[0]: t[1] for t in self.graph.to_undirected().degree}
+
+    @property
+    def calculate_out_degree_centrality(self) -> dict:
+        """
+
+        :return:
+        """
+        return nx.out_degree_centrality(self.graph)
+
+    @property
+    def calculate_in_degree_centrality(self) -> dict:
+        """
+
+        :return:
+        """
+        return nx.in_degree_centrality(self.graph)
+
+    @property
+    def calculate_undirected_degree_centrality(self) -> dict:
+        """
+
+        :return:
+        """
+        return nx.degree_centrality(self.graph.to_undirected())
+
+    @property
+    def calculate_betweenness_centrality(self) -> dict:
+        """
+
+        :return:
+        """
+        return nx.betweenness_centrality(self.graph)
+
+    @property
+    def calculate_closeness_centrality(self) -> dict:
+        """
+
+        :return:
+        """
+        return nx.closeness_centrality(self.graph)
+
+    @property
+    def calculate_page_rank(self) -> dict:
+        """
+
+        :return:
+        """
+        return nx.pagerank(self.graph, alpha=0.9)
+
+    @property
+    def calculate_hub_and_authorities(self) -> tuple:
+        """
+
+        :return:
+        """
+        hubs, authorities = nx.hits(self.graph)
+        return hubs, authorities
+
+    @property
+    def calculate_number_of_triangles(self) -> dict:
+        """
+
+        :return:
+        """
+        return nx.triangles(self.graph.to_undirected())
+
 if __name__ == "__main__":
-    train_texts = ['This is a text',
-                   'This is another texts',
-                   'This is a third text that is very usefull']
+    # train_texts = ['This is a text',
+    #                'This is another texts',
+    #                'This is a third text that is very usefull']
+    #
+    # df = pd.DataFrame(train_texts, columns=['train_abstracts'])
+    #
+    # meta = TextFeaturesExtractor.pre_process_text(texts=df['train_abstracts'])
+    #
+    # x_train_padded = meta['x']
+    # x_test_padded = TextFeaturesExtractor.text_to_padded_sequences(texts=df['train_abstracts'],
+    #                                                                tokenizer=meta['tokenizer'],
+    #                                                                max_length=meta['max_length'])
+    # print(x_test_padded)
 
-    df = pd.DataFrame(train_texts, columns=['train_abstracts'])
+    abstract = 'This is one of the largest texts you will ever find largest'
 
-    meta = TextFeaturesExtractor.pre_process_text(texts=df['train_abstracts'])
+    directed_graph = TextFeaturesExtractor.generate_graph_from_text(text=abstract, stop_word=None)
 
-    x_train_padded = meta['x']
-    x_test_padded = TextFeaturesExtractor.text_to_padded_sequences(texts=df['train_abstracts'],
-                                                                   tokenizer=meta['tokenizer'],
-                                                                   max_length=meta['max_length'])
-    print(x_test_padded)
+    obj = GraphFeaturesExtractor(directed_graph)
+
+    print(obj.calculate_avg_neighbour_degree)
+    print(obj.calculate_out_degree)
+    print(obj.calculate_in_degree)
+    print(obj.calculate_undirected_degree)
+    print(obj.calculate_out_degree_centrality)
+    print(obj.calculate_in_degree_centrality)
+    print(obj.calculate_undirected_degree_centrality)
+    print(obj.calculate_betweenness_centrality)
+    print(obj.calculate_closeness_centrality)
+    print(obj.calculate_page_rank)
+    print(obj.calculate_hub_and_authorities)
+    print(obj.calculate_number_of_triangles)
