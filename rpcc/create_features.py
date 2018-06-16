@@ -1,4 +1,6 @@
 import itertools
+import os
+import pickle
 import re
 from itertools import combinations
 from random import choice
@@ -15,6 +17,8 @@ from networkx import DiGraph
 from networkx.algorithms.community.label_propagation import label_propagation_communities
 from nltk import sent_tokenize
 from sklearn.feature_extraction.text import CountVectorizer
+
+from rpcc import PROCESSED_DATA_DIR
 
 
 class FeatureExtractor:
@@ -266,7 +270,7 @@ class TextFeaturesExtractor(FeatureExtractor):
 
 
 class GraphFeaturesExtractor:
-    directed_graph: DiGraph
+    dir_testing_graph: DiGraph
 
     def __init__(self, graph):
         """
@@ -535,7 +539,7 @@ class GraphFeaturesExtractor:
 
         return communities_df
 
-    def _create_features(self) -> pd.DataFrame:
+    def _create_node_features(self) -> pd.DataFrame:
         """
         This method performs the transformations in self.graph in order to produce the final dataset.
         It runs all the feature transformations one by one and it assembles the outputs
@@ -587,12 +591,78 @@ class GraphFeaturesExtractor:
         node_metrics_df = pd.DataFrame(node_metrics)
         return node_metrics_df
 
+    def create_node2vec_embeddings(self, emb_size=200):
+        """
+
+        :return:
+        """
+        walks = self.generate_walks(num_walks=5, walk_length=10)
+
+        embeddings = self.learn_embeddings(walks, window_size=5, d=emb_size)
+
+        return embeddings
+
+
+def create_node2vec_embeddings_from_texts(texts: iter,
+                                          window_size: int = 3,
+                                          stopwords: str = 'english',
+                                          emb_size: int = 200,
+                                          filename: str = 'abstracts_node_embeddings',
+                                          load_embeddings: bool = False,
+                                          save_embeddings: bool = True) -> dict:
+    """
+    This function creates a large corpus of text from an iterable of texts. Then tokenizes the text and
+    creates a large directed graph.
+    Then it takes all nodes from the graph, creates multiple random paths and then feeds this path to
+    gensim in order to obtain Glove embeddings.
+
+
+
+    :param texts: An iterable of texts.
+    :param window_size: The size of the sliding window that will be used for the creation of the directed graph.
+    :param stopwords: str. 'english' or None or an iter of stopwords that have to be removed before creating the graph
+    :param emb_size: int. The size of the embedding GlOVE vectors.
+    :param filename: str. The filelanme in order to load or save the node2vec embeddings.
+    :param load_embeddings: bool. Whether we want to load a pretrained embeddings model.
+    :param save_embeddings: bool. Whether we want to save the trained embeddings model.
+    :return: dict. A dictionary of words (nodes) to vec embeddings.
+    """
+
+    filename = '{}_{}.pickle'.format(filename, emb_size)
+    filepath = os.path.join(PROCESSED_DATA_DIR, 'embeddings', filename)
+
+    if load_embeddings:
+        print('Loading Embeddings file: {}'.format(filepath))
+        with open(filepath, 'rb') as handle:
+            embeddings_dict = pickle.load(handle)
+            return embeddings_dict
+
+    corpus = '\n'.join(texts)
+
+    # TODO Add Lemmatization to text before creating the graph
+
+    directed_graph = TextFeaturesExtractor.generate_graph_from_text(text=corpus,
+                                                                    window_size=window_size,
+                                                                    stop_word=stopwords)
+
+    graph_obj = GraphFeaturesExtractor(graph=directed_graph)
+
+    embeddings_dict = graph_obj.create_node2vec_embeddings(emb_size=emb_size)
+
+    if save_embeddings:
+        print('Saving Embeddings file: {}'.format(filepath))
+        with open(filepath, 'wb') as handle:
+            pickle.dump(embeddings_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
+
+    return embeddings_dict
+
 
 if __name__ == "__main__":
-    # train_texts = ['This is a text',
-    #                'This is another texts',
-    #                'This is a third text that is very usefull']
-    #
+    train_texts = ['This is a text',
+                   'This is another texts',
+                   'This is a third text that is very useful',
+                   'What do you want from me']
+
     # df = pd.DataFrame(train_texts, columns=['train_abstracts'])
     #
     # meta = TextFeaturesExtractor.pre_process_text(texts=df['train_abstracts'])
@@ -603,13 +673,20 @@ if __name__ == "__main__":
     #                                                                max_length=meta['max_length'])
     # print(x_test_padded)
 
-    abstract = 'This is one of the largest texts you will ever find largest'
+    # abstract = 'This is one of the largest texts you will ever find largest'
+    #
+    # dir_testing_graph = TextFeaturesExtractor.generate_graph_from_text(text=abstract,
+    #                                                                    stop_word=None)
+    #
+    # obj = GraphFeaturesExtractor(dir_testing_graph)
+    #
+    # asfd = obj.get_one_hot_communities
 
-    directed_graph = TextFeaturesExtractor.generate_graph_from_text(text=abstract,
-                                                                    stop_word=None)
+    # print(asfd)
 
-    obj = GraphFeaturesExtractor(directed_graph)
+    out = create_node2vec_embeddings_from_texts(texts=train_texts,
+                                                emb_size=100,
+                                                save_embeddings=False,
+                                                load_embeddings=True)
 
-    asfd = obj.get_one_hot_communities
-
-    print(asfd)
+    print(out)
