@@ -7,6 +7,8 @@ import pandas as pd
 from more_itertools import windowed, flatten
 from nltk import sent_tokenize
 from sklearn.feature_extraction.text import CountVectorizer
+from keras.preprocessing.text import Tokenizer
+from keras.preprocessing.sequence import pad_sequences
 
 
 class FeatureExtractor:
@@ -29,8 +31,7 @@ class FeatureExtractor:
 
     """
 
-    def __init__(self,
-                 input_data):
+    def __init__(self, input_data):
         """
 
         :param input_data:
@@ -95,6 +96,77 @@ class FeatureExtractor:
 
         else:
             raise NotImplementedError('Must load Node INFO first.')
+
+    @staticmethod
+    def pre_process_text(texts: iter) -> dict:
+        """
+        This method istantiates a tokenizer, and fits that tokenizer with the texts.
+        Then creates tokenized sequences, calculates maximum texts length and padd the shorter texts
+
+        :param texts: An iterable of strings
+        :return: dict. A dictionary containing metadata that are userfull when building DL models.
+        """
+
+        # setting up word level tokenizer
+        tokenizer = Tokenizer(char_level=False, oov_token='<UNK>')
+
+        texts_clean = list()
+        # removing whitespaces, converting to lower case
+        for text in texts:
+            text = text.lower().strip()
+            texts_clean.append(text)
+
+        # creating the vocabulary of the tokenizer
+        tokenizer.fit_on_texts(texts=texts_clean)
+        # converting in sequences of integers.
+        tokenized_sequences = tokenizer.texts_to_sequences(texts_clean)
+
+        # calculating the max_length.
+        max_length = max([len(seq) for seq in tokenized_sequences])
+
+        # padding the shorter sentences by adding zeros
+        padded_sequences = pad_sequences(tokenized_sequences,
+                                         maxlen=max_length,
+                                         dtype='int32',
+                                         padding='post',
+                                         truncating='post')
+
+        # creating 2 dictionaries that will help in the dl processes
+        int2word = {num: char for char, num in tokenizer.word_index.items()}
+        word2int = tokenizer.word_index
+
+        return dict(x=padded_sequences,
+                    int2word=int2word,
+                    word2int=word2int,
+                    max_length=max_length)
+
+    @staticmethod
+    def text_to_padded_sequences(texts: iter,
+                                 tokenizer: Tokenizer,
+                                 max_length: int) -> list:
+        """
+
+        :param texts:
+        :param tokenizer:
+        :param max_length:
+        :return:
+        """
+
+        texts_clean = list()
+
+        for text in texts:
+            text = text.lower().strip()
+            texts_clean.append(text)
+        # converting in sequences of integers.
+        tokenized_sequences = tokenizer.texts_to_sequences(texts_clean)
+        # padding the shorter sentences by adding zeros
+        padded_sequences = pad_sequences(tokenized_sequences,
+                                         maxlen=max_length,
+                                         dtype='int32',
+                                         padding='post',
+                                         truncating='post')
+
+        return padded_sequences
 
     @staticmethod
     def generate_graph_from_text(text: str,
@@ -174,3 +246,14 @@ class FeatureExtractor:
         # TODO run one by one each feature creation
 
         self.processed_data = self.raw_data
+
+
+if __name__ == "__main__":
+    train_texts = ['This is a text',
+                   'This is another texts',
+                   'This is a third text that is very usefull']
+    df = pd.DataFrame(train_texts, columns=['train_abstracts'])
+
+    obj = FeatureExtractor(input_data=df)
+
+    obj.text_to_padded_sequences(texts=df['train_abstracts'], test_texts=df['train_abstracts'])
