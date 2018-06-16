@@ -509,7 +509,7 @@ class GraphFeaturesExtractor:
         return cliques_size_avg_dict, cliques_size_std_dict, cliques_size_max_dict, number_of_cliques_dict
 
     @property
-    def get_one_hot_communities(self):
+    def get_one_hot_communities(self) -> pd.DataFrame:
         """
 
         :param G:
@@ -517,20 +517,75 @@ class GraphFeaturesExtractor:
         """
         community_generator = label_propagation_communities(self.undirected_graph)
 
-        cluster_assignments = dict()
-        cluster_size = 0
-
+        number_of_communities = 0
+        nodes = list()
+        community_labels = list()
         for community_id, community_members in enumerate(community_generator):
-            cluster_size += 1
+            number_of_communities += 1
             for node in community_members:
-                cluster_assignments[node] = community_id
+                nodes.append(node)
+                community_labels.append(community_id)
 
-        one_hot_assignments = dict()
-        for node, community_id in cluster_assignments.items():
-            one_hot_assignments[node] = to_categorical(y=community_id,
-                                                       num_classes=cluster_size)
+        one_hot_communities = to_categorical(y=community_labels,
+                                             num_classes=number_of_communities)
 
-        return one_hot_assignments
+        communities_df = pd.DataFrame(one_hot_communities,
+                                      index=nodes,
+                                      columns=["comm_{}".format(i) for i in range(number_of_communities)])
+
+        return communities_df
+
+    def _create_features(self) -> pd.DataFrame:
+        """
+        This method performs the transformations in self.graph in order to produce the final dataset.
+        It runs all the feature transformations one by one and it assembles the outputs
+        to one Pandas DataFrame
+
+        :return: Pandas DataFrame, is stored in object's process_data variable.
+        """
+        avg_neigh_degree_dict = self.calculate_avg_neighbour_degree
+        out_degree_dict = self.calculate_out_degree
+        in_degree_dict = self.calculate_in_degree
+        degree_dict = self.calculate_undirected_degree
+        out_degree_centrality_dict = self.calculate_out_degree_centrality
+        in_degree_centrality_dict = self.calculate_in_degree_centrality
+        degree_centrality_dict = self.calculate_undirected_degree_centrality
+        betweenness_centrality_dict = self.calculate_betweenness_centrality
+        closeness_centrality_dict = self.calculate_closeness_centrality
+        page_rank_dict = self.calculate_page_rank
+        hubs_dict, authorities_dict = self.calculate_hub_and_authorities
+        n_triangles_dict = self.calculate_number_of_triangles
+
+        # Metadata regarding cliques
+        avg_size_dict, std_size_dict, max_size_dict, number_of_cliques_dict = self.get_graph_cliques_metrics
+
+        node_metrics = list()
+        for node in self.directed_graph.nodes():
+            node_features = {
+                'avg_neigh_deg': avg_neigh_degree_dict[node],
+                'out_degree': out_degree_dict[node],
+                'in_degree': in_degree_dict[node],
+                'degree': degree_dict[node],
+                'out_degree_centrality': out_degree_centrality_dict[node],
+                'in_degree_centrality': in_degree_centrality_dict[node],
+                'degree_centrality': degree_centrality_dict[node],
+                'betweenness_centrality': betweenness_centrality_dict[node],
+                'closeness_centrality': closeness_centrality_dict[node],
+                'page_rank': page_rank_dict[node],
+                'hubs_rank': hubs_dict[node],
+                'authorities_rank': authorities_dict[node],
+                'n_triangles': n_triangles_dict[node],
+                'avg_cliques_size': avg_size_dict[node],
+                'std_cliques_size': std_size_dict[node],
+                'max_clique_size': max_size_dict[node],
+                'n_cliques': number_of_cliques_dict[node],
+
+            }
+
+            node_metrics.append(node_features)
+
+        node_metrics_df = pd.DataFrame(node_metrics)
+        return node_metrics_df
 
 
 if __name__ == "__main__":
@@ -555,19 +610,6 @@ if __name__ == "__main__":
 
     obj = GraphFeaturesExtractor(directed_graph)
 
-    print(obj.calculate_avg_neighbour_degree)
-    print(obj.calculate_out_degree)
-    print(obj.calculate_in_degree)
-    print(obj.calculate_undirected_degree)
-    print(obj.calculate_out_degree_centrality)
-    print(obj.calculate_in_degree_centrality)
-    print(obj.calculate_undirected_degree_centrality)
-    print(obj.calculate_betweenness_centrality)
-    print(obj.calculate_closeness_centrality)
-    print(obj.calculate_page_rank)
-    print(obj.calculate_hub_and_authorities)
-    print(obj.calculate_number_of_triangles)
-    print(obj.extract_k_core_nodes)
-    print(obj.convert_graph_to_adjacency_matrix)
-    print(obj.get_graph_cliques_metrics)
-    print(obj.get_one_hot_communities)
+    asfd = obj.get_one_hot_communities
+
+    print(asfd)
