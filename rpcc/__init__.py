@@ -50,8 +50,9 @@ DATA_DIR = os.path.join(PARENT_DIRECTORY, 'data')
 MODELS_DIR = os.path.join(PARENT_DIRECTORY, 'models')
 
 RAW_DATA_DIR = os.path.join(DATA_DIR, 'raw')
-PROCESSED_DATA_DIR =  os.path.join(DATA_DIR, 'processed')
-OUTFILE_DATA_DIR =  os.path.join(DATA_DIR, 'outfile')
+PROCESSED_DATA_DIR = os.path.join(DATA_DIR, 'processed')
+OUTFILE_DATA_DIR = os.path.join(DATA_DIR, 'outfile')
+
 
 # if the folders don't exist, create them.
 if not exists(DATA_DIR):
