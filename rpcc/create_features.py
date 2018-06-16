@@ -9,8 +9,10 @@ import pandas as pd
 from gensim.models import Word2Vec
 from keras.preprocessing.sequence import pad_sequences
 from keras.preprocessing.text import Tokenizer
+from keras.utils import to_categorical
 from more_itertools import windowed, flatten
 from networkx import DiGraph
+from networkx.algorithms.community.label_propagation import label_propagation_communities
 from nltk import sent_tokenize
 from sklearn.feature_extraction.text import CountVectorizer
 
@@ -506,6 +508,30 @@ class GraphFeaturesExtractor:
 
         return cliques_size_avg_dict, cliques_size_std_dict, cliques_size_max_dict, number_of_cliques_dict
 
+    @property
+    def get_one_hot_communities(self):
+        """
+
+        :param G:
+        :return:
+        """
+        community_generator = label_propagation_communities(self.undirected_graph)
+
+        cluster_assignments = dict()
+        cluster_size = 0
+
+        for community_id, community_members in enumerate(community_generator):
+            cluster_size += 1
+            for node in community_members:
+                cluster_assignments[node] = community_id
+
+        one_hot_assignments = dict()
+        for node, community_id in cluster_assignments.items():
+            one_hot_assignments[node] = to_categorical(y=community_id,
+                                                       num_classes=cluster_size)
+
+        return one_hot_assignments
+
 
 if __name__ == "__main__":
     # train_texts = ['This is a text',
@@ -544,3 +570,4 @@ if __name__ == "__main__":
     print(obj.extract_k_core_nodes)
     print(obj.convert_graph_to_adjacency_matrix)
     print(obj.get_graph_cliques_metrics)
+    print(obj.get_one_hot_communities)
