@@ -4,6 +4,7 @@ from itertools import combinations
 from random import choice
 
 import networkx as nx
+import numpy as np
 import pandas as pd
 from gensim.models import Word2Vec
 from keras.preprocessing.sequence import pad_sequences
@@ -263,32 +264,33 @@ class TextFeaturesExtractor(FeatureExtractor):
 
 
 class GraphFeaturesExtractor:
-    graph: DiGraph
+    directed_graph: DiGraph
 
     def __init__(self, graph):
         """
 
         :param graph:
         """
-        self.graph = graph
+        self.directed_graph = graph
+
+        self.undirected_graph = self.directed_graph.to_undirected()
 
     def random_walk(self,
                     node: int,
                     walk_length: int) -> list:
         """
         This function performs a random walk of size "walk_length" for a given "node" from a directed graph G.
-        :param graph: A network X directed graph
         :param node: One of the nodes of the graph
         :param walk_length:
         :return:
         """
 
-        assert node in self.graph.nodes()
+        assert node in self.directed_graph.nodes()
         walk = [node]
 
         for i in range(walk_length):
             # create a list of the successors for the given node
-            successors = list(self.graph.successors(walk[-1]))
+            successors = list(self.directed_graph.successors(walk[-1]))
             if successors:
                 walk.append(choice(successors))
             else:
@@ -309,7 +311,7 @@ class GraphFeaturesExtractor:
         """
         walks = list()
 
-        for node in self.graph.nodes():
+        for node in self.directed_graph.nodes():
             for n_walk in range(num_walks):
                 walk_list = self.random_walk(node=node, walk_length=walk_length)
                 walks.append(walk_list)
@@ -323,7 +325,6 @@ class GraphFeaturesExtractor:
         """
         This method creates node embeddings given a graph and some random 'walks'.
 
-        :param graph: A networkX graph
         :param walks: An list of lists of integers denoting the nodes of the graph.
         :param window_size: The size of the windows of the model that learns the embeddings.
         :param d: The output dimension of the node embeddings.
@@ -340,7 +341,7 @@ class GraphFeaturesExtractor:
 
         embeddings = dict()
 
-        for node in self.graph.nodes():
+        for node in self.directed_graph.nodes():
             embeddings[node] = model[node]
 
         return embeddings
@@ -351,7 +352,7 @@ class GraphFeaturesExtractor:
 
         :return:
         """
-        return nx.average_neighbor_degree(self.graph)
+        return nx.average_neighbor_degree(self.directed_graph)
 
     @property
     def calculate_out_degree(self) -> dict:
@@ -359,7 +360,7 @@ class GraphFeaturesExtractor:
 
         :return:
         """
-        return {t[0]: t[1] for t in self.graph.out_degree}
+        return {t[0]: t[1] for t in self.directed_graph.out_degree}
 
     @property
     def calculate_in_degree(self) -> dict:
@@ -367,7 +368,7 @@ class GraphFeaturesExtractor:
 
         :return:
         """
-        return {t[0]: t[1] for t in self.graph.in_degree}
+        return {t[0]: t[1] for t in self.directed_graph.in_degree}
 
     @property
     def calculate_undirected_degree(self) -> dict:
@@ -375,7 +376,7 @@ class GraphFeaturesExtractor:
 
         :return:
         """
-        return {t[0]: t[1] for t in self.graph.to_undirected().degree}
+        return {t[0]: t[1] for t in self.undirected_graph.degree}
 
     @property
     def calculate_out_degree_centrality(self) -> dict:
@@ -383,7 +384,7 @@ class GraphFeaturesExtractor:
 
         :return:
         """
-        return nx.out_degree_centrality(self.graph)
+        return nx.out_degree_centrality(self.directed_graph)
 
     @property
     def calculate_in_degree_centrality(self) -> dict:
@@ -391,7 +392,7 @@ class GraphFeaturesExtractor:
 
         :return:
         """
-        return nx.in_degree_centrality(self.graph)
+        return nx.in_degree_centrality(self.directed_graph)
 
     @property
     def calculate_undirected_degree_centrality(self) -> dict:
@@ -399,7 +400,7 @@ class GraphFeaturesExtractor:
 
         :return:
         """
-        return nx.degree_centrality(self.graph.to_undirected())
+        return nx.degree_centrality(self.undirected_graph)
 
     @property
     def calculate_betweenness_centrality(self) -> dict:
@@ -407,7 +408,7 @@ class GraphFeaturesExtractor:
 
         :return:
         """
-        return nx.betweenness_centrality(self.graph)
+        return nx.betweenness_centrality(self.directed_graph)
 
     @property
     def calculate_closeness_centrality(self) -> dict:
@@ -415,7 +416,7 @@ class GraphFeaturesExtractor:
 
         :return:
         """
-        return nx.closeness_centrality(self.graph)
+        return nx.closeness_centrality(self.directed_graph)
 
     @property
     def calculate_page_rank(self) -> dict:
@@ -423,7 +424,7 @@ class GraphFeaturesExtractor:
 
         :return:
         """
-        return nx.pagerank(self.graph, alpha=0.9)
+        return nx.pagerank(self.directed_graph, alpha=0.9)
 
     @property
     def calculate_hub_and_authorities(self) -> tuple:
@@ -431,7 +432,7 @@ class GraphFeaturesExtractor:
 
         :return:
         """
-        hubs, authorities = nx.hits(self.graph)
+        hubs, authorities = nx.hits(self.directed_graph)
         return hubs, authorities
 
     @property
@@ -440,7 +441,71 @@ class GraphFeaturesExtractor:
 
         :return:
         """
-        return nx.triangles(self.graph.to_undirected())
+        return nx.triangles(self.undirected_graph)
+
+    @property
+    def extract_k_core_nodes(self) -> list:
+        """
+        This function extracts the nodes of the k-core sub-graph of a given graph.
+
+        :param graph:
+        :return:
+        """
+        core = nx.k_core(self.directed_graph)
+        return core.nodes()
+
+    @property
+    def convert_graph_to_adjacency_matrix(self) -> np.matrix:
+        """
+
+        :return:
+        """
+        return nx.to_numpy_matrix(self.directed_graph)
+
+    def get_node_cliques_metrics(self, node) -> dict:
+        """
+
+        :param node:
+        :return:
+        """
+
+        out = {'node_cliques_size_avg': 0,
+               'node_cliques_size_std': 0,
+               'node_cliques_size_max': 0,
+               'node_number_of_cliques': 0}
+
+        cliques = nx.cliques_containing_node(self.undirected_graph, nodes=node)
+
+        if cliques:
+            clique_sizes = [len(c) for c in cliques]
+
+            out['node_cliques_size_avg'] = np.mean(clique_sizes)
+            out['node_cliques_size_std'] = np.std(clique_sizes)
+            out['node_cliques_size_max'] = max(clique_sizes)
+            out['node_number_of_cliques'] = len(cliques)
+
+        return out
+
+    @property
+    def get_graph_cliques_metrics(self) -> tuple:
+        """
+
+        :return:
+        """
+        cliques_size_avg_dict = dict()
+        cliques_size_std_dict = dict()
+        cliques_size_max_dict = dict()
+        number_of_cliques_dict = dict()
+
+        for node in self.directed_graph.nodes():
+            meta = self.get_node_cliques_metrics(node)
+            cliques_size_avg_dict[node] = meta['node_cliques_size_avg']
+            cliques_size_std_dict[node] = meta['node_cliques_size_std']
+            cliques_size_max_dict[node] = meta['node_cliques_size_max']
+            number_of_cliques_dict[node] = meta['node_number_of_cliques']
+
+        return cliques_size_avg_dict, cliques_size_std_dict, cliques_size_max_dict, number_of_cliques_dict
+
 
 if __name__ == "__main__":
     # train_texts = ['This is a text',
@@ -459,7 +524,8 @@ if __name__ == "__main__":
 
     abstract = 'This is one of the largest texts you will ever find largest'
 
-    directed_graph = TextFeaturesExtractor.generate_graph_from_text(text=abstract, stop_word=None)
+    directed_graph = TextFeaturesExtractor.generate_graph_from_text(text=abstract,
+                                                                    stop_word=None)
 
     obj = GraphFeaturesExtractor(directed_graph)
 
@@ -475,3 +541,6 @@ if __name__ == "__main__":
     print(obj.calculate_page_rank)
     print(obj.calculate_hub_and_authorities)
     print(obj.calculate_number_of_triangles)
+    print(obj.extract_k_core_nodes)
+    print(obj.convert_graph_to_adjacency_matrix)
+    print(obj.get_graph_cliques_metrics)
