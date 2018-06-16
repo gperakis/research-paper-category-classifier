@@ -9,6 +9,10 @@ from nltk import sent_tokenize
 from sklearn.feature_extraction.text import CountVectorizer
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
+from networkx.algorithms.community.label_propagation import label_propagation_communities
+from random import choice
+from random import seed
+from gensim.models import Word2Vec
 
 
 class FeatureExtractor:
@@ -42,60 +46,29 @@ class FeatureExtractor:
 
         self._create_features()
 
-    @staticmethod
-    def clean_up_authors(authors):
+    def _create_features(self):
         """
-        Extract author names from a string
+        This method performs the transformations in self.input_data in order to produce
+        the final dataset.
+        It runs all the feature transformations one by one and it assembles the outputs
+        to one Pandas DataFrame
 
-        :param authors: str. the authors fo the article
-        :return: list of str. with the authors of the article, is applicable
+        :return: Pandas DataFrame, is stored in object's process_data variable.
         """
-        if authors is None:
-            return []
 
-        else:
-            temp_authors = re.sub(r'\((.*?)\)', '', authors)
-            temp_authors = re.sub(r'\((.*?,)', '', temp_authors)
-            temp_authors = re.sub(r'\((.*?)', '', temp_authors)
+        # TODO run one by one each feature creation
 
-            cleaned_authors = temp_authors.split(',')
-            cleaned_authors = [a.strip() for a in cleaned_authors]
+        self.processed_data = self.raw_data
 
-            return cleaned_authors
 
-    def __create_authors_graph(self, authors: iter) -> nx.Graph:
+class TextFeaturesExtractor(FeatureExtractor):
+
+    def __init__(self, input_data):
         """
-        Creates a networkX undirected network object with weighted edges that
-        stores the connections between the authors
 
-        :param authors: An iterable of strings containing multiple authors in each string.
-        :return: A networkX graph of all the connections between the authors.
+        :param input_data:
         """
-        if isinstance(authors, pd.Series):
-
-            # instantiating a simple Graph.
-            G = nx.Graph()
-
-            for authors_str in authors:
-                # cleaning up the authors. Returns a list of authors.
-                cleaned_authors = self.clean_up_authors(authors_str)
-                # only keeping those authors that have length over 2 characters.
-                co_authors = [author for author in cleaned_authors if len(author) > 2]
-
-                if co_authors:
-                    # extracting all author combinations per pair.
-                    for comb in itertools.combinations(co_authors, 2):
-
-                        # if there is already an edge between the two authors, add more weight.
-                        if G.has_edge(comb[0], comb[1]):
-                            G[comb[0]][comb[1]]['weight'] += 1
-                        else:
-                            G.add_edge(comb[0], comb[1], weight=1)
-
-            return G
-
-        else:
-            raise NotImplementedError('Must load Node INFO first.')
+        super().__init__(input_data)
 
     @staticmethod
     def pre_process_text(texts: iter) -> dict:
@@ -138,7 +111,8 @@ class FeatureExtractor:
         return dict(x=padded_sequences,
                     int2word=int2word,
                     word2int=word2int,
-                    max_length=max_length)
+                    max_length=max_length,
+                    tokenizer=tokenizer)
 
     @staticmethod
     def text_to_padded_sequences(texts: iter,
@@ -233,27 +207,159 @@ class FeatureExtractor:
 
         return G
 
-    def _create_features(self):
-        """
-        This method performs the transformations in self.input_data in order to produce
-        the final dataset.
-        It runs all the feature transformations one by one and it assembles the outputs
-        to one Pandas DataFrame
 
-        :return: Pandas DataFrame, is stored in object's process_data variable.
+class GraphFeaturesExtractor(FeatureExtractor):
+
+    def __init__(self, input_data):
         """
 
-        # TODO run one by one each feature creation
+        :param input_data:
+        """
+        super().__init__(input_data)
 
-        self.processed_data = self.raw_data
+    @staticmethod
+    def clean_up_authors(authors):
+        """
+        Extract author names from a string
 
+        :param authors: str. the authors fo the article
+        :return: list of str. with the authors of the article, is applicable
+        """
+        if authors is None:
+            return []
+
+        else:
+            temp_authors = re.sub(r'\((.*?)\)', '', authors)
+            temp_authors = re.sub(r'\((.*?,)', '', temp_authors)
+            temp_authors = re.sub(r'\((.*?)', '', temp_authors)
+
+            cleaned_authors = temp_authors.split(',')
+            cleaned_authors = [a.strip() for a in cleaned_authors]
+
+            return cleaned_authors
+
+    def __create_authors_graph(self, authors: iter) -> nx.Graph:
+        """
+        Creates a networkX undirected network object with weighted edges that
+        stores the connections between the authors
+
+        :param authors: An iterable of strings containing multiple authors in each string.
+        :return: A networkX graph of all the connections between the authors.
+        """
+        if isinstance(authors, pd.Series):
+
+            # instantiating a simple Graph.
+            G = nx.Graph()
+
+            for authors_str in authors:
+                # cleaning up the authors. Returns a list of authors.
+                cleaned_authors = self.clean_up_authors(authors_str)
+                # only keeping those authors that have length over 2 characters.
+                co_authors = [author for author in cleaned_authors if len(author) > 2]
+
+                if co_authors:
+                    # extracting all author combinations per pair.
+                    for comb in itertools.combinations(co_authors, 2):
+
+                        # if there is already an edge between the two authors, add more weight.
+                        if G.has_edge(comb[0], comb[1]):
+                            G[comb[0]][comb[1]]['weight'] += 1
+                        else:
+                            G.add_edge(comb[0], comb[1], weight=1)
+
+            return G
+
+        else:
+            raise NotImplementedError('Must load Node INFO first.')
+
+    @staticmethod
+    def random_walk(graph: nx.DiGraph,
+                    node: int,
+                    walk_length: int) -> list:
+        """
+        This function performs a random walk of size "walk_length" for a given "node" from a directed graph G.
+        :param graph: A network X directed graph
+        :param node: One of the nodes of the graph
+        :param walk_length:
+        :return:
+        """
+
+        assert node in graph.nodes()
+        walk = [node]
+
+        for i in range(walk_length):
+            # create a list of the successors for the given node
+            successors = list(graph.successors(walk[-1]))
+            if successors:
+                walk.append(choice(successors))
+            else:
+                # if no successors stop
+                break
+
+        return walk
+
+    def generate_walks(self,
+                       graph: nx.DiGraph,
+                       num_walks: int,
+                       walk_length: int) -> list:
+        """
+        This method for a given graph creates a number of "num_walks" for all nodes of the given walk length
+
+        :param graph: A network X directed Graph
+        :param num_walks: Int. The number of walks to be extracted for each node.
+        :param walk_length: Int. The size of the of walk length
+        :return:
+        """
+        walks = list()
+
+        for node in graph.nodes():
+            for n_walk in range(num_walks):
+                walk_list = self.random_walk(G, node=node, walk_length=walk_length)
+                walks.append(walk_list)
+
+        return walks
+
+    @staticmethod
+    def learn_embeddings(graph: nx.DiGraph,
+                         walks: iter,
+                         window_size: int,
+                         d: int):
+        """
+        This method creates node embeddings given a graph and some random 'walks'.
+
+        :param graph: A networkX graph
+        :param walks: An list of lists of integers denoting the nodes of the graph.
+        :param window_size: The size of the windows of the model that learns the embeddings.
+        :param d: The output dimension of the node embeddings.
+        :return:
+        """
+
+        model = Word2Vec(sentences=walks,
+                         size=d,
+                         min_count=0,
+                         window=window_size,
+                         iter=50,
+                         workers=-1,
+                         sg=1)
+
+        embeddings = dict()
+
+        for node in graph.nodes():
+            embeddings[node] = model[node]
+
+        return embeddings
 
 if __name__ == "__main__":
     train_texts = ['This is a text',
                    'This is another texts',
                    'This is a third text that is very usefull']
+
     df = pd.DataFrame(train_texts, columns=['train_abstracts'])
 
-    obj = FeatureExtractor(input_data=df)
+    meta = TextFeaturesExtractor.pre_process_text(texts=df['train_abstracts'])
 
-    obj.text_to_padded_sequences(texts=df['train_abstracts'], test_texts=df['train_abstracts'])
+    x_train_padded = meta['x']
+    x_test_padded = TextFeaturesExtractor.text_to_padded_sequences(texts=df['train_abstracts'],
+                                                                   tokenizer=meta['tokenizer'],
+                                                                   max_length=meta['max_length'])
+    print(x_test_padded)
