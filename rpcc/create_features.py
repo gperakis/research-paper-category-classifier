@@ -20,7 +20,7 @@ from networkx.algorithms.community.label_propagation import label_propagation_co
 
 SPACY_NLP = spacy.load('en', parse=False, tag=False, entity=False)
 
-from rpcc import PROCESSED_DATA_DIR, CONTRACTION_MAP
+from rpcc import PROCESSED_DATA_DIR, CONTRACTION_MAP, RAW_DATA_DIR
 
 
 class FeatureExtractor:
@@ -43,7 +43,7 @@ class FeatureExtractor:
 
     """
 
-    def __init__(self, input_data):
+    def __init__(self, input_data=None):
         """
 
         :param input_data:
@@ -275,9 +275,9 @@ class TextFeaturesExtractor(FeatureExtractor):
         assert window_size in range(1, 6)
 
         expanded = self.expand_contractions(text=text)
-        lemmatized = self.lemmatize_text(text=expanded)
+        # lemmatized = self.lemmatize_text(text=expanded)
 
-        tokens = text_to_word_sequence(text=lemmatized, lower=True)
+        tokens = text_to_word_sequence(text=expanded, lower=True)
 
         if directed:
             # instantiating the Directed graph
@@ -384,7 +384,7 @@ class GraphFeaturesExtractor:
                          size=d,
                          min_count=0,
                          window=window_size,
-                         iter=50,
+                         iter=100,
                          workers=-1,
                          sg=1)
 
@@ -497,7 +497,6 @@ class GraphFeaturesExtractor:
         """
         This function extracts the nodes of the k-core sub-graph of a given graph.
 
-        :param graph:
         :return:
         """
         core = nx.k_core(self.directed_graph)
@@ -559,7 +558,6 @@ class GraphFeaturesExtractor:
     def get_one_hot_communities(self) -> pd.DataFrame:
         """
 
-        :param G:
         :return:
         """
         community_generator = label_propagation_communities(self.undirected_graph)
@@ -648,9 +646,8 @@ class GraphFeaturesExtractor:
 
 def create_node2vec_embeddings_from_texts(texts: iter,
                                           window_size: int = 3,
-                                          stopwords: str = 'english',
                                           emb_size: int = 200,
-                                          filename: str = 'abstracts_node_embeddings',
+                                          filename: str = 'glove.abstracts.nodes',
                                           load_embeddings: bool = False,
                                           save_embeddings: bool = True) -> dict:
     """
@@ -663,15 +660,15 @@ def create_node2vec_embeddings_from_texts(texts: iter,
 
     :param texts: An iterable of texts.
     :param window_size: The size of the sliding window that will be used for the creation of the directed graph.
-    :param stopwords: str. 'english' or None or an iter of stopwords that have to be removed before creating the graph
     :param emb_size: int. The size of the embedding GlOVE vectors.
-    :param filename: str. The filelanme in order to load or save the node2vec embeddings.
-    :param load_embeddings: bool. Whether we want to load a pretrained embeddings model.
+    :param filename: str. The filename in order to load or save the node2vec embeddings.
+    :param load_embeddings: bool. Whether we want to load a pre-trained embeddings model.
     :param save_embeddings: bool. Whether we want to save the trained embeddings model.
     :return: dict. A dictionary of words (nodes) to vec embeddings.
     """
+    assert emb_size in [50, 100, 200, 300]
 
-    filename = '{}_{}.pickle'.format(filename, emb_size)
+    filename = '{}.{}d.pickle'.format(filename, emb_size)
     filepath = os.path.join(PROCESSED_DATA_DIR, 'embeddings', filename)
 
     if load_embeddings:
@@ -682,14 +679,13 @@ def create_node2vec_embeddings_from_texts(texts: iter,
 
     corpus = '\n'.join(texts)
 
-    # TODO Add Lemmatization to text before creating the graph
-
-    directed_graph = TextFeaturesExtractor.generate_graph_from_text(text=corpus,
-                                                                    window_size=window_size,
-                                                                    stop_word=stopwords)
+    # contractions expanding and lemmatization is done within 'generate_graph_from_text'
+    print('Creating directed Graph')
+    directed_graph = TextFeaturesExtractor(input_data=None).generate_graph_from_text(text=corpus,
+                                                                                     window_size=window_size)
 
     graph_obj = GraphFeaturesExtractor(graph=directed_graph)
-
+    print('Creating Embeddings of size: {}'.format(emb_size))
     embeddings_dict = graph_obj.create_node2vec_embeddings(emb_size=emb_size)
 
     if save_embeddings:
@@ -701,46 +697,15 @@ def create_node2vec_embeddings_from_texts(texts: iter,
 
 
 if __name__ == "__main__":
-    train_texts = ['This is a text',
-                   'This is another texts',
-                   'This is a third text that is very useful',
-                   'What do you want from me']
+    papers_path = os.path.join(RAW_DATA_DIR, 'node_information.csv')
 
-    # df = pd.DataFrame(train_texts, columns=['train_abstracts'])
-    #
-    # meta = TextFeaturesExtractor.pre_process_text(texts=df['train_abstracts'])
-    #
-    # x_train_padded = meta['x']
-    # x_test_padded = TextFeaturesExtractor.text_to_padded_sequences(texts=df['train_abstracts'],
-    #                                                                tokenizer=meta['tokenizer'],
-    #                                                                max_length=meta['max_length'])
-    # print(x_test_padded)
+    # abstracts =pd.read_csv(papers_path, usecols=['abstract'])['abstract']
+    titles = pd.read_csv(papers_path, usecols=['title'])['title']
 
-    # abstract = 'This is one of the largest texts you will ever find largest'
-    #
-    # dir_testing_graph = TextFeaturesExtractor.generate_graph_from_text(text=abstract,
-    #                                                                    stop_word=None)
-    #
-    # obj = GraphFeaturesExtractor(dir_testing_graph)
-    #
-    # asfd = obj.get_one_hot_communities
-
-    # print(asfd)
-
-    # out = create_node2vec_embeddings_from_texts(texts=train_texts,
-    #                                             emb_size=100,
-    #                                             save_embeddings=False,
-    #                                             load_embeddings=True)
-    #
-    # print(out)
-
-    a_text = "I'm going to the cinema. We'd like to go too. I am you are he is she is"
-
-    a = TextFeaturesExtractor.expand_contractions(text=a_text)
-    b = TextFeaturesExtractor.lemmatize_text(text=a_text)
-    c = TextFeaturesExtractor(input_data='adsf').prepare_text(text=a_text)
-
-    print(a)
-
-    print(b)
-    print(c)
+    for emb_size in [50, 100, 200, 300]:
+        create_node2vec_embeddings_from_texts(texts=titles,
+                                              window_size=3,
+                                              emb_size=emb_size,
+                                              filename='glove.titles.nodes',
+                                              load_embeddings=False,
+                                              save_embeddings=True)
