@@ -8,17 +8,19 @@ from random import choice
 import networkx as nx
 import numpy as np
 import pandas as pd
+import spacy
 from gensim.models import Word2Vec
 from keras.preprocessing.sequence import pad_sequences
 from keras.preprocessing.text import Tokenizer
+from keras.preprocessing.text import text_to_word_sequence
 from keras.utils import to_categorical
 from more_itertools import windowed, flatten
 from networkx import DiGraph
 from networkx.algorithms.community.label_propagation import label_propagation_communities
-from nltk import sent_tokenize
-from sklearn.feature_extraction.text import CountVectorizer
 
-from rpcc import PROCESSED_DATA_DIR
+SPACY_NLP = spacy.load('en', parse=False, tag=False, entity=False)
+
+from rpcc import PROCESSED_DATA_DIR, CONTRACTION_MAP
 
 
 class FeatureExtractor:
@@ -97,7 +99,52 @@ class TextFeaturesExtractor(FeatureExtractor):
 
             return cleaned_authors
 
-    def __create_authors_graph(self, authors: iter) -> nx.Graph:
+    @staticmethod
+    def expand_contractions(text: str) -> str:
+        """
+        This function expands contractions for the english language. For example "I've" will become "I have".
+
+        :param text:
+        :return:
+        """
+
+        contractions_pattern = re.compile('({})'.format(
+            '|'.join(CONTRACTION_MAP.keys())), flags=re.IGNORECASE | re.DOTALL)
+
+        def expand_match(contraction):
+            """
+            This sub function helps into expanding a given contraction
+            :param contraction:
+            :return:
+            """
+            match = contraction.group(0)
+            first_char = match[0]
+
+            expanded = CONTRACTION_MAP.get(match) if CONTRACTION_MAP.get(match) else CONTRACTION_MAP.get(match.lower())
+
+            expanded = first_char + expanded[1:]
+
+            return expanded
+
+        expanded_text = contractions_pattern.sub(expand_match, text)
+        expanded_text = re.sub("'", "", expanded_text)
+
+        return expanded_text
+
+    @staticmethod
+    def lemmatize_text(text, spacy_nlp=SPACY_NLP):
+        """
+        This method lemmatizes text
+
+        :param text:
+        :return:
+        """
+        text = spacy_nlp(text)
+        text = ' '.join([word.lemma_ if word.lemma_ != '-PRON-' else word.text for word in text])
+
+        return text
+
+    def create_authors_graph(self, authors: iter) -> nx.Graph:
         """
         Creates a networkX undirected network object with weighted edges that
         stores the connections between the authors
@@ -131,8 +178,7 @@ class TextFeaturesExtractor(FeatureExtractor):
         else:
             raise NotImplementedError('Must load Node INFO first.')
 
-    @staticmethod
-    def pre_process_text(texts: iter) -> dict:
+    def pre_process_text(self, texts: iter) -> dict:
         """
         This method istantiates a tokenizer, and fits that tokenizer with the texts.
         Then creates tokenized sequences, calculates maximum texts length and padd the shorter texts
@@ -148,7 +194,9 @@ class TextFeaturesExtractor(FeatureExtractor):
         # removing whitespaces, converting to lower case
         for text in texts:
             text = text.lower().strip()
-            texts_clean.append(text)
+            expanded = self.expand_contractions(text=text)
+            lemmatized = self.lemmatize_text(text=expanded)
+            texts_clean.append(lemmatized)
 
         # creating the vocabulary of the tokenizer
         tokenizer.fit_on_texts(texts=texts_clean)
@@ -175,8 +223,8 @@ class TextFeaturesExtractor(FeatureExtractor):
                     max_length=max_length,
                     tokenizer=tokenizer)
 
-    @staticmethod
-    def text_to_padded_sequences(texts: iter,
+    def text_to_padded_sequences(self,
+                                 texts: iter,
                                  tokenizer: Tokenizer,
                                  max_length: int) -> list:
         """
@@ -191,7 +239,10 @@ class TextFeaturesExtractor(FeatureExtractor):
 
         for text in texts:
             text = text.lower().strip()
-            texts_clean.append(text)
+            expanded = self.expand_contractions(text=text)
+            lemmatized = self.lemmatize_text(text=expanded)
+            texts_clean.append(lemmatized)
+
         # converting in sequences of integers.
         tokenized_sequences = tokenizer.texts_to_sequences(texts_clean)
         # padding the shorter sentences by adding zeros
@@ -203,68 +254,60 @@ class TextFeaturesExtractor(FeatureExtractor):
 
         return padded_sequences
 
-    @staticmethod
-    def generate_graph_from_text(text: str,
+    def generate_graph_from_text(self,
+                                 text: str,
                                  window_size: int = 3,
-                                 directed: bool = True,
-                                 stop_word: str = 'english'):
+                                 directed: bool = True) -> nx.Graph:
         """
         This method creates a graph from the words of a text. At first splits the text in sentences
         and then parses each sentence through a  sliding window, generating a graph by joining the window tokens with
-        some weights. This text may be an abstact of a paper or it's title.
+        some weights. This text may be an abstract of a paper or it's title.
 
         :type text: str
         :type window_size: int
         :type directed: bool
-        :type stop_word: str
         :param text: A document of any size.
         :param window_size: The size of the sliding window that we will use in order to generate the nodes and edges.
         :param directed: Whether we will created a directed or undirected graph.
-        :param stop_word: Stopwords for stop word removal.
         :return: A networkX graph.
         """
         assert directed in [True, False]
         assert window_size in range(1, 6)
 
-        # splitting the text into sentences.
-        sentences = sent_tokenize(text)
+        expanded = self.expand_contractions(text=text)
+        lemmatized = self.lemmatize_text(text=expanded)
 
-        # instantiating a tokenizer in order to tokenize each sentence.
-        sent2tokens_tokenizer = CountVectorizer(stop_words=stop_word).build_analyzer()
+        tokens = text_to_word_sequence(text=lemmatized, lower=True)
 
         if directed:
             # instantiating the Directed graph
             G = nx.DiGraph()
         else:
-            # instantiating the Undirted graph
+            # instantiating the Undirected graph
             G = nx.Graph()
 
-        # for each sentence split in tokens
-        for sentence in sentences:
-            tokens = sent2tokens_tokenizer(sentence)
+        # All the magic is here!  Creates the weights indices.
+        # For example for window_size = 5 the output is weight_index = [1, 2, 3, 4, 1, 2, 3, 1, 2, 1]
+        # The weight index remain the same for all windows due to the fact that the window size is stable.
+        weight_index = list(flatten([list(range(1, i + 1)) for i in range(window_size - 1, 0, -1)]))
 
-            # All the magic is here!  Creates the weights indices.
-            # For example for window_size = 5 the output is weight_index = [1, 2, 3, 4, 1, 2, 3, 1, 2, 1]
-            # The weight index remain the same for all windows due to the fact that the window size is stable.
-            weight_index = list(flatten([list(range(1, i + 1)) for i in range(window_size - 1, 0, -1)]))
+        for window in windowed(tokens, window_size):
+            # for the tokens in the window take all the combinations.
+            # Eg: Tokens: [tok1, tok2, tok3, tok4] the result will be:
+            # [tok1, tok2], [tok1, tok3], [tok1, tok4], [tok2, tok3], [tok2, tok4], [tok3, tok4]
+            for num, comb in enumerate(combinations(window, 2)):
+                # create the actual weight for each combination: eg: 1, 1/2, 1/3, 1/4, etc
+                weight = 1 / weight_index[num]
 
-            for window in windowed(tokens, window_size):
-                # for the tokens in the window take all the combinations.
-                # Eg: Tokens: [tok1, tok2, tok3, tok4] the result will be:
-                # [tok1, tok2], [tok1, tok3], [tok1, tok4], [tok2, tok3], [tok2, tok4], [tok3, tok4]
-                for num, comb in enumerate(combinations(window, 2)):
-                    # create the actual weight for each combination: eg: 1, 1/2, 1/3, 1/4, etc
-                    weight = 1 / weight_index[num]
+                # if there is already an edge between the two text tokens, add more weight between the edges.
+                if G.has_edge(comb[0], comb[1]):
+                    G[comb[0]][comb[1]]['weight'] += weight
+                else:
+                    # there is no edge, so we create an edge between them.
+                    G.add_edge(comb[0], comb[1], weight=weight)
 
-                    # if there is already an edge between the two text tokens, add more weight between the edges.
-                    if G.has_edge(comb[0], comb[1]):
-                        G[comb[0]][comb[1]]['weight'] += weight
-                    else:
-                        # there is no edge, so we create an edge between them.
-                        G.add_edge(comb[0], comb[1], weight=weight)
-
-            # removing any self loop edges.
-            G.remove_edges_from(G.selfloop_edges())
+        # removing any self loop edges.
+        G.remove_edges_from(G.selfloop_edges())
 
         return G
 
@@ -684,9 +727,20 @@ if __name__ == "__main__":
 
     # print(asfd)
 
-    out = create_node2vec_embeddings_from_texts(texts=train_texts,
-                                                emb_size=100,
-                                                save_embeddings=False,
-                                                load_embeddings=True)
+    # out = create_node2vec_embeddings_from_texts(texts=train_texts,
+    #                                             emb_size=100,
+    #                                             save_embeddings=False,
+    #                                             load_embeddings=True)
+    #
+    # print(out)
 
-    print(out)
+    a_text = "I'm going to the cinema. We'd like to go too. I am you are he is she is"
+
+    a = TextFeaturesExtractor.expand_contractions(text=a_text)
+    b = TextFeaturesExtractor.lemmatize_text(text=a_text)
+    c = TextFeaturesExtractor(input_data='adsf').prepare_text(text=a_text)
+
+    print(a)
+
+    print(b)
+    print(c)
