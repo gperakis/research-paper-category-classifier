@@ -6,7 +6,9 @@ import networkx as nx
 import pandas as pd
 from sklearn.model_selection import StratifiedShuffleSplit
 
-from rpcc import RAW_DATA_DIR, PROCESSED_DATA_DIR
+from rpcc import RAW_DATA_DIR, PROCESSED_DATA_DIR, setup_logger
+
+logger = setup_logger(__name__)
 
 
 class DataLoader:
@@ -79,7 +81,7 @@ class DataLoader:
         :param y: pandas Series with the targets
         :param val_size: float. percentage of the validation data set
         :param random_state: int. seed of the random shuffling
-        :return: dict. with the splitted sets of data
+        :return: dict. with the split sets of data
         """
         sss = StratifiedShuffleSplit(test_size=val_size,
                                      random_state=random_state)
@@ -123,8 +125,7 @@ class DataLoader:
 
         self.article_metadata = df
 
-    @property
-    def create_citation_network(self) -> nx.DiGraph:
+    def _create_citation_network(self) -> nx.DiGraph:
         """
         Creates a networkX directed network object that stores the citations among the articles
 
@@ -143,31 +144,42 @@ class DataLoader:
 
         return G
 
-    def __load_training_data(self):
+    def __load_training_data(self) -> None:
         """
         Consolidates the labeled data with their metadata
 
         :return: pandas DataFrame with all the features and the target of both the train and validation data
         """
+
+        # read training data
         train_val_df = pd.read_csv(self.train_file_name)
+
+        # convert the int index to str
         train_val_df['Article'] = train_val_df['Article'].apply(str)
+
+        # Converting NaN's to None's
         train_val_df = train_val_df.where((pd.notnull(train_val_df)), None)
 
+        # Merging the train ids with the article metadata in order to get the features.
         train_val_enhanced = train_val_df.merge(self.article_metadata,
                                                 left_on='Article',
                                                 right_on='id',
                                                 how='left')
-        train_val_enhanced.drop('id', axis=1)
-        # creating the abstract graphs for the train-validation abstracts
-        train_val_enhanced['abstract_graph'] = train_val_enhanced['abstract'].apply(self.generate_graph_from_text)
 
+        # Dropping the 'id' column because it's the same index as 'Article'
+        train_val_enhanced.drop('id', axis=1)
+        # # creating the abstract graphs for the train-validation abstracts
+        # train_val_enhanced['abstract_graph'] = train_val_enhanced['abstract'].apply(self.generate_graph_from_text)
+
+        # storing the train_validation ids
         self.train_validation_ids = list(train_val_df['Article'])
+        # storing the x_train_validation dataset without the target
         self.x_train_validation = train_val_enhanced.drop('Journal', axis=1)
+        # storing the y_train_validation
         self.y_train_validation = train_val_enhanced['Journal']
 
+        # storing all the possible values of the targets.
         self.targets = set(train_val_enhanced['Journal'])
-
-        return train_val_enhanced
 
     def __load_test_data(self):
         """
@@ -175,22 +187,28 @@ class DataLoader:
         with all the features of the test data
 
         """
+        # loading the test ids.
         test_df = pd.read_csv(self.test_file_name)
 
+        # converting the index to str
         test_df['Article'] = test_df['Article'].apply(str)
 
+        # converting the id's to a list
         test_ids = list(test_df['Article'])
 
+        # extracting the features for the test dataset.
         test_x = self.article_metadata[self.article_metadata['id'].isin(test_ids)].copy()
-        # creating the abstract graphs for the testing abstracts
-        test_x['abstract_graph'] = test_x['abstract'].apply(self.generate_graph_from_text)
+        # # creating the abstract graphs for the testing abstracts
+        # test_x['abstract_graph'] = test_x['abstract'].apply(self.generate_graph_from_text)
 
         test_x.rename(columns={'id': 'Article'}, inplace=True)
 
+        # storing the test_dis
         self.test_ids = test_ids
+        # storing the features of the test dataset.
         self.x_test = test_x
 
-    def run_data_preparation(self, val_size=0.2):
+    def run_data_preparation(self, val_size: float = 0.2) -> None:
         """
         Creates all the needed datasets and networks for the given inputs.
 
@@ -198,18 +216,19 @@ class DataLoader:
         :return:
         """
 
-        # Load data about each article in a dataframe and set it to the constuctor
+        # Load data about each paper in a dataframe and set it to the constructor
         self.__load_article_metadata()
 
-        # Create a directed graph and store it in the constructor
-        self.create_citation_network()
+        # Create a directed graph about the citations and store it in the constructor
+        self._create_citation_network()
 
         # Load consolidated train & validation dataframe
-        train_val_enhanced = self.__load_training_data()
+        self.__load_training_data()
 
         # Load consolidated test dataframe
         self.__load_test_data()
 
+        # splitting the train_validation dataset in train - validation
         split_meta = self.get_stratified_data(X=self.x_train_validation,
                                               y=self.y_train_validation,
                                               val_size=val_size,
@@ -221,6 +240,8 @@ class DataLoader:
         self.y_train = split_meta['y_train']
         self.y_val = split_meta['y_val']
 
+        # the train ids will be used for the first level of the models
+        # whereas the validation will be used for running ensemble models.
         self.train_ids = list(self.x_train['Article'])
         self.validation_ids = list(self.x_val['Article'])
 
@@ -245,22 +266,20 @@ class DataLoader:
             for t in self.__calc_label_ratios(self.y_val):
                 print("Label {}: {}%".format(t[0], t[1]))
 
-        self.__create_authors_label_props(train_val_enhanced)
-
-        self.__create_authors_graph()
-
         return None
 
 
-def dump_data_loader():
+def dump_data_loader() -> None:
     """
-
+    This function instantiates the data loader, running the whole procedure
+    and dumps the whole model class to a pickle file.
     :return:
     """
     load_data_obj = DataLoader(verbose=0)
     load_data_obj.run_data_preparation()
 
     outfile = os.path.join(PROCESSED_DATA_DIR, 'DataLoader.pickle')
+
     with open(outfile, 'wb') as handle:
         pickle.dump(load_data_obj, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
@@ -269,7 +288,7 @@ def dump_data_loader():
 
 def restore_data_loader():
     """
-
+    This function restores a data loader instance from a pickle file.
     :return:
     """
     infile = os.path.join(PROCESSED_DATA_DIR, 'DataLoader.pickle')
