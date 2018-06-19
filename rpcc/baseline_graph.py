@@ -7,7 +7,9 @@ from sklearn.linear_model import LogisticRegression
 
 from rpcc import DATA_DIR
 
-G = nx.read_edgelist(os.path.join(DATA_DIR, 'Cit-HepTh.txt'), delimiter='\t', create_using=nx.DiGraph())
+G = nx.read_edgelist(os.path.join(DATA_DIR, 'Cit-HepTh.txt'),
+                     delimiter='\t',
+                     create_using=nx.DiGraph())
 
 print("Nodes: ", G.number_of_nodes())
 print("Edges: ", G.number_of_edges())

@@ -1,474 +1,17 @@
 import os
 
+import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import pandas as pd
-from sklearn.base import BaseEstimator, TransformerMixin
+from networkx.algorithms import bipartite
 from tqdm import tqdm
-from networkx.algorithms import community
+
+from rpcc import RAW_DATA_DIR
 from rpcc import setup_logger, PROCESSED_DATA_DIR
 from rpcc.load_data import restore_data_loader, DataLoader
-from pprint import pprint
-from rpcc import RAW_DATA_DIR
-from networkx.algorithms import bipartite
-import matplotlib.pyplot as plt
 
 logger = setup_logger(__name__)
-
-
-class GraphToAdjacencyMatrixTransformer(BaseEstimator, TransformerMixin):
-
-    def __init__(self, graph):
-        """
-
-        :param graph:
-        :param ids:
-        """
-        self.graph = graph
-        self.matrix = None
-
-    def transform(self, X=None, y=None):
-        """
-
-        :param X: Network X node IDs in a list
-        :param y:
-        :return:
-        """
-        self.matrix = nx.to_numpy_matrix(self.graph)
-
-        return self.matrix
-
-    def fit(self, X, y=None):
-        """Returns `self` unless something different happens in train and test"""
-        return self
-
-
-class CalculateAvgNeighbourDegree(BaseEstimator, TransformerMixin):
-
-    def __init__(self, graph):
-        """
-
-        :param graph:
-        :param ids:
-        """
-        self.graph = graph
-        self.avg_neig_deg = None
-
-    def transform(self, X=None, y=None):
-        """
-
-        :param X: Network X node IDs in a list
-        :param y:
-        :return:
-        """
-        self.avg_neig_deg = nx.average_neighbor_degree(self.graph)
-
-        if X is None:
-            df = pd.DataFrame.from_dict(self.avg_neig_deg, orient='index')
-            df.columns = ['avg_neigh_deg']
-            return df
-
-        series = pd.Series(X, name='node_ids')
-        return series.apply(lambda x: self.avg_neig_deg[x])
-
-    def fit(self, X, y=None):
-        """Returns `self` unless something different happens in train and test"""
-        return self
-
-
-class CalculateOutDegree(BaseEstimator, TransformerMixin):
-
-    def __init__(self, graph):
-        """
-
-        :param graph:
-        """
-        self.graph = graph
-        self.out_degree = None
-
-    def transform(self, X=None, y=None):
-        """
-
-        :param X: Network X node IDs in a list
-        :param y:
-        :return:
-        """
-
-        self.out_degree = self.graph.out_degree()
-
-        if X is None:
-            df = pd.DataFrame.from_dict(self.out_degree, orient='index')
-            df.columns = ['out_degree']
-            return df
-
-        series = pd.Series(X, name='node_ids')
-        return series.apply(lambda x: self.out_degree.get(x))
-
-    def fit(self, X, y=None):
-        """Returns `self` unless something different happens in train and test"""
-        return self
-
-
-class CalculateInDegree(BaseEstimator, TransformerMixin):
-
-    def __init__(self, graph):
-        """
-
-        :param graph:
-        """
-        self.graph = graph
-        self.in_degree = None
-
-    def transform(self, X=None, y=None):
-        """
-
-        :param X: Network X node IDs in a list
-        :param y:
-        :return:
-        """
-
-        self.in_degree = self.graph.in_degree()
-
-        if X is None:
-            df = pd.DataFrame.from_dict(self.in_degree, orient='index')
-            df.columns = ['in_degree']
-
-            return df
-
-        series = pd.Series(X, name='node_ids')
-        return series.apply(lambda x: self.in_degree.get(x))
-
-    def fit(self, X, y=None):
-        """Returns `self` unless something different happens in train and test"""
-        return self
-
-
-class CalculateUndirectedDegree(BaseEstimator, TransformerMixin):
-
-    def __init__(self, graph):
-        """
-
-        :param graph:
-        """
-        self.graph = graph
-        self.degree = None
-
-    def transform(self, X=None, y=None):
-        """
-
-        :param X: Network X node IDs in a list
-        :param y:
-        :return:
-        """
-
-        self.degree = {t[0]: t[1] for t in self.graph.degree()}
-
-        if X is None:
-            df = pd.DataFrame.from_dict(self.degree, orient='index')
-            df.columns = ['in_degree']
-
-            return df
-
-        series = pd.Series(X, name='node_ids')
-        return series.apply(lambda x: self.degree.get(x))
-
-    def fit(self, X, y=None):
-        """Returns `self` unless something different happens in train and test"""
-        return self
-
-
-class CalculateOutDegreeCentrality(BaseEstimator, TransformerMixin):
-
-    def __init__(self, graph):
-        """
-
-        :param graph:
-        """
-        self.graph = graph
-
-        self.out_deg_centrality = None
-
-    def transform(self, X=None, y=None):
-        """
-
-        :param X: Network X node IDs in a list
-        :param y:
-        :return:
-        """
-
-        self.out_deg_centrality = nx.out_degree_centrality(self.graph)
-        if X is None:
-            df = pd.DataFrame.from_dict(self.out_deg_centrality, orient='index')
-            df.columns = ['out_degree_centr']
-            return df
-
-        series = pd.Series(X, name='node_ids')
-
-        return series.apply(lambda x: self.out_deg_centrality[x])
-
-    def fit(self, X, y=None):
-        """Returns `self` unless something different happens in train and test"""
-        return self
-
-
-class CalculateInDegreeCentrality(BaseEstimator, TransformerMixin):
-
-    def __init__(self, graph):
-        """
-
-        :param graph:
-        """
-        self.graph = graph
-
-        self.in_deg_centrality = None
-
-    def transform(self, X=None, y=None):
-        """
-
-        :param X: Network X node IDs in a list
-        :param y:
-        :return:
-        """
-
-        self.in_deg_centrality = nx.in_degree_centrality(self.graph)
-        if X is None:
-            df = pd.DataFrame.from_dict(self.in_deg_centrality, orient='index')
-            df.columns = ['in_degree_centr']
-            return df
-
-        series = pd.Series(X, name='node_ids')
-
-        return series.apply(lambda x: self.in_deg_centrality[x])
-
-    def fit(self, X, y=None):
-        """Returns `self` unless something different happens in train and test"""
-        return self
-
-
-class CalculateUndirectedDegreeCentrality(BaseEstimator, TransformerMixin):
-
-    def __init__(self, graph):
-        """
-
-        :param graph:
-        """
-        self.graph = graph
-
-        self.in_deg_centrality = None
-
-    def transform(self, X=None, y=None):
-        """
-
-        :param X: Network X node IDs in a list
-        :param y:
-        :return:
-        """
-
-        self.in_deg_centrality = nx.degree_centrality(self.graph)
-        if X is None:
-            df = pd.DataFrame.from_dict(self.in_deg_centrality, orient='index')
-            df.columns = ['in_degree_centr']
-            return df
-
-        series = pd.Series(X, name='node_ids')
-
-        return series.apply(lambda x: self.in_deg_centrality[x])
-
-    def fit(self, X, y=None):
-        """Returns `self` unless something different happens in train and test"""
-        return self
-
-
-class CalculateBetweenessCentrality(BaseEstimator, TransformerMixin):
-
-    def __init__(self, graph):
-        """
-
-        :param graph:
-        """
-        self.graph = graph
-
-        self.betweeness_centrality = None
-
-    def transform(self, X=None, y=None):
-        """
-
-        :param X: Network X node IDs in a list
-        :param y:
-        :return:
-        """
-
-        self.betweeness_centrality = nx.betweenness_centrality(self.graph)
-
-        if X is None:
-            df = pd.DataFrame.from_dict(self.betweeness_centrality, orient='index')
-            df.columns = ['betweeness_centr']
-
-            return df
-
-        series = pd.Series(X, name='node_ids')
-
-        return series.apply(lambda x: self.betweeness_centrality[x])
-
-    def fit(self, X, y=None):
-        """Returns `self` unless something different happens in train and test"""
-        return self
-
-
-class CalculateClosenessCentrality(BaseEstimator, TransformerMixin):
-
-    def __init__(self, graph):
-        """
-
-        :param graph:
-        """
-        self.graph = graph
-
-        self.closeness_centrality = None
-
-    def transform(self, X=None, y=None):
-        """
-
-        :param X: Network X node IDs in a list
-        :param y:
-        :return:
-        """
-
-        self.closeness_centrality = nx.closeness_centrality(self.graph)
-
-        if X is None:
-            df = pd.DataFrame.from_dict(self.closeness_centrality, orient='index')
-            df.columns = ['closeness_centr']
-
-            return df
-
-        series = pd.Series(X, name='node_ids')
-
-        return series.apply(lambda x: self.closeness_centrality[x])
-
-    def fit(self, X, y=None):
-        """Returns `self` unless something different happens in train and test"""
-        return self
-
-
-class CalculatePageRank(BaseEstimator, TransformerMixin):
-
-    def __init__(self, graph):
-        """
-
-        :param graph:
-        """
-        self.graph = graph
-
-        self.page_rank = None
-
-    def transform(self, X=None, y=None):
-        """
-
-        :param X: Network X node IDs in a list
-        :param y:
-        :return:
-        """
-
-        self.page_rank = nx.pagerank(self.graph, alpha=0.9)
-
-        if X is None:
-            df = pd.DataFrame.from_dict(self.page_rank, orient='index')
-            df.columns = ['page_rank']
-
-            return df
-
-        series = pd.Series(X, name='node_ids')
-
-        return series.apply(lambda x: self.page_rank[x])
-
-    def fit(self, X, y=None):
-        """Returns `self` unless something different happens in train and test"""
-        return self
-
-
-class CalculateHubsAndAuthorities(BaseEstimator, TransformerMixin):
-    """Works for directed graphs only"""
-
-    def __init__(self, graph):
-        """
-
-        :param graph:
-        """
-        self.graph = graph
-
-        self.hubs, self.authorities = None, None
-
-    def transform(self, X, y=None):
-        """
-
-        :param X: Network X node IDs in a list
-        :param y:
-        :return:
-        """
-        self.hubs, self.authorities = nx.hits(self.graph)
-
-        if X is None:
-            df_hubs = pd.DataFrame.from_dict(self.hubs, orient='index')
-            df_hubs.columns = ['hubs']
-
-            df_authorities = pd.DataFrame.from_dict(self.hubs, orient='index')
-            df_authorities.columns = ['authorities']
-
-            df = df_hubs.merge(df_authorities, left_index=True, right_index=True)
-            return df
-
-        df = pd.DataFrame(X, columns=['node_ids'])
-        df['hubs'] = df['node_ids'].apply(lambda x: self.hubs[x])
-        df['authorities'] = df['node_ids'].apply(lambda x: self.authorities[x])
-
-        return df[['hubs', 'authorities']]
-
-    def fit(self, X, y=None):
-        """Returns `self` unless something different happens in train and test"""
-        return self
-
-
-class CalculateNumberOfTriangles(BaseEstimator, TransformerMixin):
-    """Only for directed graphs"""
-
-    def __init__(self, graph, to_undirected=False):
-        """
-
-        :param graph:
-        """
-        self.to_undirected = to_undirected
-
-        self.graph = graph
-        if self.to_undirected:
-            self.graph = self.graph.to_undirected()
-
-        self.n_triangles = None
-
-    def transform(self, X=None, y=None):
-        """
-
-        :param X: Network X node IDs in a list
-        :param y:
-        :return:
-        """
-
-        self.n_triangles = nx.triangles(self.graph)
-
-        if X is None:
-            df = pd.DataFrame.from_dict(self.n_triangles, orient='index')
-
-            df.columns = ['undirected_triangles']
-
-            return df
-
-        series = pd.Series(X, name='node_ids')
-
-        return series.apply(lambda x: self.n_triangles[x])
-
-    def fit(self, X, y=None):
-        """Returns `self` unless something different happens in train and test"""
-        return self
 
 
 def normalize_dict_values(d):
@@ -488,7 +31,7 @@ def normalize_dict_values(d):
     return d
 
 
-def get_cliques_metadata(G, node):
+def get_cliques_metadata(G, node, targets, props=None):
     """
 
     :param G:
@@ -500,7 +43,8 @@ def get_cliques_metadata(G, node):
     out = {'node_cliques_size_avg': 0,
            'node_cliques_size_std': 0,
            'node_cliques_size_max': 0,
-           'node_cliques_number': 0}
+           'node_cliques_number': 0,
+           'node_cliques_props_avg': {}}
 
     cliques = nx.cliques_containing_node(G, nodes=node)
 
@@ -512,10 +56,31 @@ def get_cliques_metadata(G, node):
         out['node_cliques_size_max'] = max(clique_sizes)
         out['node_cliques_number'] = len(cliques)
 
+        if props:
+
+            all_clique_props = list()
+
+            for clique in cliques:
+                clique_props = list()
+                for n in clique:
+                    clique_props.append(props.get(n, dict.fromkeys(targets, 0.0)))
+
+                clique_avg_label_props = pd.DataFrame(clique_props).sum(axis=0).to_dict()
+                clique_avg_label_props = normalize_dict_values(clique_avg_label_props)
+
+                all_clique_props.append(clique_avg_label_props)
+
+            # taking thee average for all cliques.
+            avg_cliques_label_props = (pd.DataFrame(all_clique_props).sum(axis=0) / len(all_clique_props)).to_dict()
+            # normalizing the values of the dictionary
+            avg_cliques_label_props = normalize_dict_values(avg_cliques_label_props)
+
+            out['node_cliques_props_avg'] = avg_cliques_label_props
+
     return out
 
 
-def get_paper_authors_metadata(authors, authors_graph):
+def get_paper_authors_metadata(authors, authors_probs, targets, authors_graph):
     """
 
     :param authors:
@@ -527,19 +92,26 @@ def get_paper_authors_metadata(authors, authors_graph):
 
     out = dict()
 
+    probs_results = list()
     clique_max_sizes = list()
     node_cliques_number_results = list()
     average_clique_sizes_results = list()
     std_clique_sizes_results = list()
     for author in authors:
         x = get_cliques_metadata(authors_graph,
-                                 node=author)
+                                 node=author,
+                                 targets=targets,
+                                 props=authors_probs)
 
+        probs_results.append(x['node_cliques_props_avg'])
         node_cliques_number_results.append(x['node_cliques_number'])
         average_clique_sizes_results.append(x['node_cliques_size_avg'])
 
         clique_max_sizes.append(x['node_cliques_size_max'])
         std_clique_sizes_results.append(x['node_cliques_size_std'])
+
+    avg_props = (pd.DataFrame(probs_results).sum(axis=0) / len(probs_results)).to_dict()
+    avg_props = normalize_dict_values(avg_props)
 
     total_max = max(clique_max_sizes)
     avg_max = np.mean(clique_max_sizes)
@@ -554,6 +126,8 @@ def get_paper_authors_metadata(authors, authors_graph):
 
     paper_mean_std_clique_size = np.mean(std_clique_sizes_results)
     paper_std_std_clique_size = np.std(std_clique_sizes_results)
+
+    out.update(avg_props)
 
     out['paper_max_clique_size'] = total_max
     out['paper_avg_max_clique_size'] = avg_max
@@ -607,7 +181,9 @@ def create_paper_author_features(load=False, save=True):
 
         if co_authors:
             paper_features.update(get_paper_authors_metadata(co_authors,
-                                                             authors_probs))
+                                                             authors_probs,
+                                                             targets,
+                                                             authors_graph))
         results.append(paper_features)
 
         if save:
@@ -808,6 +384,32 @@ def create_authors2article_bipartite_graph(df):
     return B
 
 
+def get_authors2titles(df):
+    """
+
+    :return:
+    """
+
+    records = df.to_dict('records')
+
+    authors_resutls = list()
+    author_tokenizer = DataLoader.clean_up_authors
+    for rec in records:
+        cleaned_authors = list(filter(lambda x: len(x) > 2,
+                                      author_tokenizer(rec['authors'])))
+
+        for auth in cleaned_authors:
+            d = {'author': auth, 'title': rec['title']}
+            authors_resutls.append(d)
+
+    authors_df = pd.DataFrame(authors_resutls).dropna(subset=['title'])
+
+    grouped = authors_df.groupby('author').agg({'title': lambda x: ' '.join(list(x))})
+
+    return grouped
+
+
+
 def plot_bipartite_graph(graph):
     """
 
@@ -827,13 +429,15 @@ def plot_bipartite_graph(graph):
 
 
 if __name__ == "__main__":
-    bipartite_graph = create_authors2article_bipartite_graph(df1)
+    df1 = pd.read_csv(os.path.join(RAW_DATA_DIR,
+                                   'node_information.csv'), usecols=['id', 'authors', 'title'])
+    df1 = df1.where((pd.notnull(df1)), None)
 
-    print(nx.adjacency_matrix(G=bipartite_graph))
+    # bipartite_graph = create_authors2article_bipartite_graph(df1)
+    #
+    # plot_bipartite_graph(bipartite_graph)
 
-    print(nx.adjacency_matrix(G=bipartite_graph).shape)
-
-    # print()
+    get_authors2titles(df1)
 
     # cites_df = create_cites_graph_features(load=True, save=False)
     # print(cites_df)
