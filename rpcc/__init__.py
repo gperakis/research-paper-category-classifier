@@ -2,6 +2,7 @@ import logging
 import os
 from logging import handlers
 from os import makedirs
+from os.path import dirname, abspath
 from os.path import exists
 
 
@@ -44,7 +45,8 @@ def setup_logger(name):
     return logger
 
 
-PARENT_DIRECTORY = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
+# PARENT_DIRECTORY = os.path.abspath(os.path.join(os.getcwd(), os.pardir))
+PARENT_DIRECTORY = dirname(dirname(abspath(__file__)))
 
 DATA_DIR = os.path.join(PARENT_DIRECTORY, 'data')
 MODELS_DIR = os.path.join(PARENT_DIRECTORY, 'models')
@@ -52,7 +54,6 @@ MODELS_DIR = os.path.join(PARENT_DIRECTORY, 'models')
 RAW_DATA_DIR = os.path.join(DATA_DIR, 'raw')
 PROCESSED_DATA_DIR = os.path.join(DATA_DIR, 'processed')
 OUTFILE_DATA_DIR = os.path.join(DATA_DIR, 'outfile')
-
 
 # if the folders don't exist, create them.
 if not exists(DATA_DIR):
