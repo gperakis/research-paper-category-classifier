@@ -128,8 +128,7 @@ class DataLoader:
         df = df.where((pd.notnull(df)), None)
 
         self.article_metadata = df
-
-        self.abstracts = list(df['article'])
+        self.abstracts = list(df['abstract'])
         self.titles = list(df['title'])
 
     def _create_citation_network(self) -> nx.DiGraph:
