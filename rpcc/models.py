@@ -3,6 +3,9 @@ from keras import layers
 from keras import regularizers
 from keras.layers import Input
 from keras.models import Model
+import numpy as np
+from rpcc import DATA_DIR
+import pandas as pd
 
 
 class ModelNN:
@@ -52,11 +55,34 @@ class ModelNN:
                                       batch_size=128)
         return self.history
 
-    def predict(self, X, dump=False):
+    def predict(self, X, y, dump=False):
         """
         Abstract method implements model prediction with Keras
         """
-        pass
+        scores = self.model.evaluate(x=X,
+                                     y=y,
+                                     verbose=1)
+
+        predicted_classes = self.model.predict(X)
+
+        pred_scores = np.squeeze(predicted_classes)
+
+        predicted_classes = list(map(lambda x: 1 if x > 0.5 else 0, list(pred_scores)))
+
+        print('predicted_classes: {}'.format(predicted_classes))
+
+        if dump:
+            # create a DataFrame with the predictions and write them to csv
+            prediction_df = pd.DataFrame(data=X)
+            prediction_df = prediction_df.assign(predictions=pd.Series(predicted_classes).values)
+
+            prediction_df.to_csv(DATA_DIR + '/predictions.csv', sep='\t')
+
+        return {'scores': {'loss': scores[0],
+                           'acc': scores[1]},
+                'y_pred': predicted_classes,
+                'y_pred_scores': pred_scores,
+                'y_true': y}
 
     def get_layer_values(self, X, layer_index=-2):
         """
@@ -174,6 +200,7 @@ class FeedForward(ModelNN):
         :param max_sequence_length: int, the max number of tokens of the input the sentence
         """
         super().__init__(emb_size, voc_size, max_sequence_length)
+        self.build_model()
 
     def build_model(self):
         """
@@ -181,21 +208,24 @@ class FeedForward(ModelNN):
         """
 
         # define model
+        # graph_input = Input(shape=(self.max_sequence_length,), dtype='float32', name='graph')
+        # abstract_input = Input(shape=(self.max_sequence_length,), dtype='float32', name='abstract')
+        # title_input = Input(shape=(self.max_sequence_length,), dtype='float32', name='title')
+        # author_input = Input(shape=(self.max_sequence_length,), dtype='float32', name='author')
+
+        # merged_input = layers.concatenate([graph_input, abstract_input, title_input, author_input], axis=-1)
+
         graph_input = Input(shape=(self.max_sequence_length,), dtype='float32', name='graph')
-        abstract_input = Input(shape=(self.max_sequence_length,), dtype='float32', name='abstract')
-        title_input = Input(shape=(self.max_sequence_length,), dtype='float32', name='title')
-        author_input = Input(shape=(self.max_sequence_length,), dtype='float32', name='author')
 
-        merged_input = layers.concatenate([graph_input, abstract_input, title_input, author_input], axis=-1)
-
-        deep1 = layers.Dense(128, activation='relu')(merged_input)
+        deep1 = layers.Dense(128, activation='relu')(graph_input)
         deep2 = layers.Dense(64, activation='relu')(deep1)
-        category = layers.Dense(28, activation='softmax')(deep2)
+        category = layers.Dense(1, activation='sigmoid')(deep2)
 
-        model = Model([graph_input, abstract_input, title_input, author_input], category)
+        # model = Model([graph_input, abstract_input, title_input, author_input], category)
+        model = Model([graph_input], category)
 
         model.compile(optimizer='adam',
-                      loss='categorical_crossentropy',
+                      loss='binary_crossentropy',
                       metrics=['acc'])
 
         print(model.summary())
