@@ -6,6 +6,7 @@ from rpcc.create_features import FeatureExtractor
 from rpcc.load_data import DataLoader
 from rpcc.models import FeedForward
 from sklearn.model_selection import KFold
+from rpcc.case_class import df
 
 """
 This script is responsible for running the hyperparameter tuning.
@@ -77,14 +78,15 @@ def dump_model(model):
 if __name__ == '__main__':
 
     # import all the data (train & dev) in a pandas DataFrame
-    dataset = DataLoader().data['train']
+    # dataset = DataLoader().data['train']
+    dataset = df
 
     # transform the data in order to get the desired features
     transformed_data = FeatureExtractor(dataset)
 
     # set the different feature combinations you want to test
-    settings = {'run_a': list(),
-                'run_b': list()}
+    settings = [('featureA', 'featureC'),
+                ('featureB', 'featureD')]
 
     hyper_parameter_results = dict()
 
