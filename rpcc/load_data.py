@@ -69,6 +69,10 @@ class DataLoader:
         # Unique classes of the articles
         self.targets = None
 
+        # all abstracts, all titles
+        self.abstracts = list()
+        self.titles = list()
+
     def get_stratified_data(self,
                             X: pd.DataFrame,
                             y: pd.Series,
@@ -124,6 +128,9 @@ class DataLoader:
         df = df.where((pd.notnull(df)), None)
 
         self.article_metadata = df
+
+        self.abstracts = list(df['article'])
+        self.titles = list(df['title'])
 
     def _create_citation_network(self) -> nx.DiGraph:
         """
