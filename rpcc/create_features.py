@@ -245,8 +245,8 @@ class TextFeaturesExtractor(FeatureExtractor):
         for text in texts:
             text = text.lower().strip()
             expanded = self.expand_contractions(text=text)
-            lemmatized = self.lemmatize_text(text=expanded)
-            texts_clean.append(lemmatized)
+            # lemmatized = self.lemmatize_text(text=expanded)
+            texts_clean.append(expanded)
 
         # converting in sequences of integers.
         tokenized_sequences = tokenizer.texts_to_sequences(texts_clean)
