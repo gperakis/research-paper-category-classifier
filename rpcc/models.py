@@ -62,7 +62,8 @@ class ModelNN:
                                       y,
                                       epochs=epochs,
                                       batch_size=bs,
-                                      validation_split=val_size)
+                                      validation_split=val_size,
+                                      verbose=2)
         return self.history
 
     def predict(self, X, y, dump=False):
