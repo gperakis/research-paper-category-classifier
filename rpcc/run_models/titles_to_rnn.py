@@ -6,6 +6,7 @@ from rpcc.models import AbstractEmbedding
 from keras.models import load_model
 import pandas as pd
 
+
 if __name__ == "__main__":
     dl_obj = DataLoader()
     dl_obj.run_data_preparation()
@@ -42,13 +43,16 @@ if __name__ == "__main__":
     # ab_emb_obj.model.save('title_rnn.h5')
 
     ab_emb_obj.model = load_model('title_rnn.h5')
-    # ab_emb_obj.fit(X=x_train_padded,
-    #                y=y_train_one_hot,
-    #                epochs=100,
-    #                val_size=0.0,
-    #                bs=128,
-    #                lr=0.001)
+    ab_emb_obj.fit(X=x_train_padded,
+                   y=y_train_one_hot,
+                   epochs=500,
+                   val_size=0.0,
+                   bs=128,
+                   lr=0.001)
+    print('saving model')
+    ab_emb_obj.model.save('title_rnn.h5')
 
+    print('running prediction')
     x_test = dl_obj.x_test['title']
     x_test_padded = tfe_obj.text_to_padded_sequences(texts=x_test,
                                                      tokenizer=tokenizer,
@@ -58,6 +62,6 @@ if __name__ == "__main__":
     preds.columns = sorted(dl_obj.targets)
     preds.index = dl_obj.x_test['Article']
     preds.reset_index(inplace=True)
-    print(preds)
+    print('preds are ready and about to be saved.')
 
     preds.to_csv('title_preds.csv', encoding='utf-8', index=False)

@@ -13,7 +13,7 @@ if __name__ == "__main__":
     dl_obj.run_data_preparation()
 
     x_test = dl_obj.x_test['title']
-    
+
     lb = LabelBinarizer()
 
     tfe_obj = TextFeaturesExtractor(input_data=x_test)
