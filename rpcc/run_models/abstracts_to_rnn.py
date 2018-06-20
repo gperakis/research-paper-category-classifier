@@ -32,12 +32,14 @@ if __name__ == "__main__":
                                    max_sequence_length=max_length)
 
     ab_emb_obj.build_model(dropout=0.3,
-                           rnn_size=50)
+                           rnn_size=150)
 
     ab_emb_obj.fit(X=x_train_padded,
                    y=y_train_one_hot,
-                   epochs=30,
-                   val_size=0.2)
+                   epochs=100,
+                   val_size=0.2,
+                   bs=512,
+                   lr=0.01)
 
     ab_emb_obj.model.save('abstract_rnn.h5')
 

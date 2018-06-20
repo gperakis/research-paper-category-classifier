@@ -7,7 +7,7 @@ from keras import layers
 from keras import regularizers
 from keras.layers import Input
 from keras.models import Model
-
+from keras.optimizers import Adam
 from rpcc import DATA_DIR
 
 
@@ -38,7 +38,7 @@ class ModelNN:
         """
         return None
 
-    def fit(self, X, y, epochs: int = 10, val_size=0.2):
+    def fit(self, X, y, epochs: int = 10, val_size=0.2, bs=128, lr=0.001):
         """
         It fits a Keras model tot eh given data and returns the learning history.
 
@@ -52,10 +52,16 @@ class ModelNN:
                 at successive epochs, as well as validation loss values
                 and validation metrics values.
         """
+        opt = Adam(lr=lr, beta_1=0.9, beta_2=0.999, epsilon=None, decay=0.0, amsgrad=False)
+
+        self.model.compile(optimizer=opt,
+                           loss='categorical_crossentropy',
+                           metrics=['acc'])
+
         self.history = self.model.fit(X,
                                       y,
                                       epochs=epochs,
-                                      batch_size=128,
+                                      batch_size=bs,
                                       validation_split=val_size)
         return self.history
 
@@ -145,10 +151,6 @@ class AbstractEmbedding(ModelNN):
         category = layers.Dense(28, activation='softmax')(encoded_text2)
 
         model = Model(text_input, [category])
-
-        model.compile(optimizer='adam',
-                      loss='categorical_crossentropy',
-                      metrics=['acc'])
 
         print(model.summary())
 
