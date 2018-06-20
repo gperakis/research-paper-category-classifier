@@ -28,7 +28,7 @@ class ModelNN:
         self.emb_size = emb_size
         self.max_sequence_length = max_sequence_length
 
-        self.model: Model = None
+        self.model = None
         self.history = None
         self.features = None
 
