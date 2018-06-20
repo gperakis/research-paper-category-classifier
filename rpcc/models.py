@@ -28,7 +28,7 @@ class ModelNN:
         self.emb_size = emb_size
         self.max_sequence_length = max_sequence_length
 
-        self.model: Model = None
+        self.model = None
         self.history = None
         self.features = None
 
@@ -232,13 +232,13 @@ class FeedForward(ModelNN):
 
         deep1 = layers.Dense(128, activation='relu')(graph_input)
         deep2 = layers.Dense(64, activation='relu')(deep1)
-        category = layers.Dense(1, activation='sigmoid')(deep2)
+        category = layers.Dense(28, activation='softmax')(deep2)
 
         # model = Model([graph_input, abstract_input, title_input, author_input], category)
         model = Model([graph_input], category)
 
         model.compile(optimizer='adam',
-                      loss='binary_crossentropy',
+                      loss='categorical_crossentropy',
                       metrics=['acc'])
 
         print(model.summary())
