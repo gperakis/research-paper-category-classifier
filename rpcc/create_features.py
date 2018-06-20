@@ -185,11 +185,12 @@ class TextFeaturesExtractor(FeatureExtractor):
         :param texts: An iterable of strings
         :return: dict. A dictionary containing metadata that are userfull when building DL models.
         """
-
+        print('Setting Tokenizer')
         # setting up word level tokenizer
         tokenizer = Tokenizer(char_level=False, oov_token='<UNK>')
 
         texts_clean = list()
+        print('Run Expand Contractions')
         # removing whitespaces, converting to lower case
         for text in texts:
             text = text.lower().strip()
@@ -197,15 +198,19 @@ class TextFeaturesExtractor(FeatureExtractor):
             # lemmatized = self.lemmatize_text(text=expanded)
             texts_clean.append(expanded)
 
+        print('Fitting Tokenizer')
         # creating the vocabulary of the tokenizer
         tokenizer.fit_on_texts(texts=texts_clean)
         # converting in sequences of integers.
+        print('Transforming Text to Integer Sequences')
         tokenized_sequences = tokenizer.texts_to_sequences(texts_clean)
 
+        print('Computing max length')
         # calculating the max_length.
         max_length = max([len(seq) for seq in tokenized_sequences])
 
         # padding the shorter sentences by adding zeros
+        print('Padding Sequences')
         padded_sequences = pad_sequences(tokenized_sequences,
                                          maxlen=max_length,
                                          dtype='int32',
@@ -213,6 +218,7 @@ class TextFeaturesExtractor(FeatureExtractor):
                                          truncating='post')
 
         # creating 2 dictionaries that will help in the dl processes
+        print('Creating Glossary Dicts')
         int2word = {num: char for char, num in tokenizer.word_index.items()}
         word2int = tokenizer.word_index
 
