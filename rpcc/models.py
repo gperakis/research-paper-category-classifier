@@ -28,7 +28,7 @@ class ModelNN:
         self.emb_size = emb_size
         self.max_sequence_length = max_sequence_length
 
-        self.model = None
+        self.model: Model = None
         self.history = None
         self.features = None
 
@@ -38,7 +38,7 @@ class ModelNN:
         """
         return None
 
-    def fit(self, X, y, epochs: int = 10):
+    def fit(self, X, y, epochs: int = 10, val_size=0.2):
         """
         It fits a Keras model tot eh given data and returns the learning history.
 
@@ -55,7 +55,8 @@ class ModelNN:
         self.history = self.model.fit(X,
                                       y,
                                       epochs=epochs,
-                                      batch_size=128)
+                                      batch_size=128,
+                                      validation_split=val_size)
         return self.history
 
     def predict(self, X, y, dump=False):
@@ -125,7 +126,7 @@ class AbstractEmbedding(ModelNN):
         """
         super().__init__(emb_size, voc_size, max_sequence_length)
 
-    def build_model(self, dropout=0.2):
+    def build_model(self, dropout=0.2, rnn_size=50):
         """
         Creates and compiles an lstm model with Keras deep learning library
         """
@@ -133,11 +134,11 @@ class AbstractEmbedding(ModelNN):
         # define model
         text_input = Input(shape=(self.max_sequence_length,), dtype='int32', name='text')
         embedded_text = layers.Embedding(self.voc_size, self.emb_size)(text_input)
-        encoded_text1 = layers.LSTM(32,
+        encoded_text1 = layers.LSTM(rnn_size,
                                     return_sequences=True,
                                     dropout=dropout,
                                     recurrent_dropout=dropout)(embedded_text)
-        encoded_text2 = layers.LSTM(32,
+        encoded_text2 = layers.LSTM(rnn_size,
                                     dropout=dropout,
                                     recurrent_dropout=dropout)(encoded_text1)
 

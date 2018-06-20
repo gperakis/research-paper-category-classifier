@@ -2,6 +2,7 @@ from sklearn.preprocessing import LabelBinarizer
 
 from rpcc.create_features import TextFeaturesExtractor
 from rpcc.load_data import DataLoader
+from rpcc.models import AbstractEmbedding
 
 if __name__ == "__main__":
     dl_obj = DataLoader()
@@ -26,7 +27,20 @@ if __name__ == "__main__":
     max_length = meta['max_length']
     tokenizer = meta['tokenizer']
 
-    print(x_train_padded)
+    ab_emb_obj = AbstractEmbedding(emb_size=200,
+                                   voc_size=len(int2word),
+                                   max_sequence_length=max_length)
+
+    ab_emb_obj.build_model(dropout=0.4,
+                           rnn_size=50)
+
+    ab_emb_obj.fit(X=x_train_padded,
+                   y=y_train_one_hot,
+                   epochs=5,
+                   val_size=0.2)
+
+    ab_emb_obj.model.save('trial_model.h5')
+
     # tfe_obj.text_to_padded_sequences(texts=x_text,
     #                                  tokenizer=tokenizer,
     #                                  max_length=,max_length)
