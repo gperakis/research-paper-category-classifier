@@ -15,7 +15,6 @@ from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.text import text_to_word_sequence
 from keras.utils import to_categorical
 from more_itertools import windowed, flatten
-from networkx import DiGraph
 from networkx.algorithms.community.label_propagation import label_propagation_communities
 
 SPACY_NLP = spacy.load('en', parse=False, tag=False, entity=False)
@@ -180,7 +179,7 @@ class TextFeaturesExtractor(FeatureExtractor):
 
     def pre_process_text(self, texts: iter) -> dict:
         """
-        This method istantiates a tokenizer, and fits that tokenizer with the texts.
+        This method instantiates a tokenizer, and fits that tokenizer with the texts.
         Then creates tokenized sequences, calculates maximum texts length and padd the shorter texts
 
         :param texts: An iterable of strings
@@ -195,8 +194,8 @@ class TextFeaturesExtractor(FeatureExtractor):
         for text in texts:
             text = text.lower().strip()
             expanded = self.expand_contractions(text=text)
-            lemmatized = self.lemmatize_text(text=expanded)
-            texts_clean.append(lemmatized)
+            # lemmatized = self.lemmatize_text(text=expanded)
+            texts_clean.append(expanded)
 
         # creating the vocabulary of the tokenizer
         tokenizer.fit_on_texts(texts=texts_clean)
@@ -313,7 +312,6 @@ class TextFeaturesExtractor(FeatureExtractor):
 
 
 class GraphFeaturesExtractor:
-    dir_testing_graph: DiGraph
 
     def __init__(self, graph):
         """
