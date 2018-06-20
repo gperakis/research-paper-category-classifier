@@ -31,15 +31,15 @@ if __name__ == "__main__":
                                    voc_size=len(int2word),
                                    max_sequence_length=max_length)
 
-    ab_emb_obj.build_model(dropout=0.4,
+    ab_emb_obj.build_model(dropout=0.3,
                            rnn_size=50)
 
     ab_emb_obj.fit(X=x_train_padded,
                    y=y_train_one_hot,
-                   epochs=5,
+                   epochs=30,
                    val_size=0.2)
 
-    ab_emb_obj.model.save('trial_model.h5')
+    ab_emb_obj.model.save('abstract_rnn.h5')
 
     # tfe_obj.text_to_padded_sequences(texts=x_text,
     #                                  tokenizer=tokenizer,
