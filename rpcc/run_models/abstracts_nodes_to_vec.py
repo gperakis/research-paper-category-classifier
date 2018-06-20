@@ -66,3 +66,4 @@ if __name__ == "__main__":
     print(meta['maxlen'])
     print(meta['data_seq'].head())
     print(meta['embedding_matrix'])
+
