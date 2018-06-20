@@ -141,12 +141,12 @@ class AbstractEmbedding(ModelNN):
                                     dropout=dropout,
                                     recurrent_dropout=dropout)(encoded_text1)
 
-        category = layers.Dense(2, activation='sigmoid')(encoded_text2)
+        category = layers.Dense(28, activation='softmax')(encoded_text2)
 
         model = Model(text_input, [category])
 
-        model.compile(optimizer='rmsprop',
-                      loss='binary_crossentropy',
+        model.compile(optimizer='adam',
+                      loss='categorical_crossentropy',
                       metrics=['acc'])
 
         print(model.summary())
