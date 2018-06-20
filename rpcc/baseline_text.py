@@ -9,13 +9,13 @@ from sklearn.linear_model import LogisticRegression
 from rpcc import DATA_DIR
 
 # Load data about each article in a dataframe
-df = pd.read_csv(os.path.join(DATA_DIR, "node_information.csv"))
+df = pd.read_csv(os.path.join(DATA_DIR, "raw/node_information.csv"))
 print(df.head())
 
 # Read training data
 train_ids = list()
 y_train = list()
-with open(os.path.join(DATA_DIR, 'train.csv'), 'r') as f:
+with open(os.path.join(DATA_DIR, 'raw/train.csv'), 'r') as f:
     next(f)
     for line in f:
         t = line.split(',')
@@ -40,7 +40,7 @@ X_train = vec.fit_transform(train_abstracts)
 
 # Read test data
 test_ids = list()
-with open(os.path.join(DATA_DIR, 'test.csv'), 'r') as f:
+with open(os.path.join(DATA_DIR, 'raw/test.csv'), 'r') as f:
     next(f)
     for line in f:
         test_ids.append(line[:-2])
@@ -63,7 +63,7 @@ text_clf.fit(X_train, y_train)
 y_pred = text_clf.predict_proba(X_test)
 
 # Write predictions to a file
-with open(os.path.join(DATA_DIR, 'sample_submission_text.csv'), 'w') as csvfile:
+with open(os.path.join(DATA_DIR, 'new_sample_submission_text.csv'), 'w') as csvfile:
     writer = csv.writer(csvfile, delimiter=',')
     lst = text_clf.classes_.tolist()
     lst.insert(0, "Article")
