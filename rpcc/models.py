@@ -1,11 +1,14 @@
+import os
+
+import numpy as np
+import pandas as pd
 from keras import backend as K
 from keras import layers
 from keras import regularizers
 from keras.layers import Input
 from keras.models import Model
-import numpy as np
+
 from rpcc import DATA_DIR
-import pandas as pd
 
 
 class ModelNN:
@@ -76,7 +79,8 @@ class ModelNN:
             prediction_df = pd.DataFrame(data=X)
             prediction_df = prediction_df.assign(predictions=pd.Series(predicted_classes).values)
 
-            prediction_df.to_csv(DATA_DIR + '/predictions.csv', sep='\t')
+            outfile_path = os.path.join(DATA_DIR, 'predictions.csv')
+            prediction_df.to_csv(outfile_path, sep='\t')
 
         return {'scores': {'loss': scores[0],
                            'acc': scores[1]},
@@ -121,7 +125,7 @@ class AbstractEmbedding(ModelNN):
         """
         super().__init__(emb_size, voc_size, max_sequence_length)
 
-    def build_model(self):
+    def build_model(self, dropout=0.2):
         """
         Creates and compiles an lstm model with Keras deep learning library
         """
@@ -129,8 +133,13 @@ class AbstractEmbedding(ModelNN):
         # define model
         text_input = Input(shape=(self.max_sequence_length,), dtype='int32', name='text')
         embedded_text = layers.Embedding(self.voc_size, self.emb_size)(text_input)
-        encoded_text1 = layers.LSTM(32, return_sequences=True)(embedded_text)
-        encoded_text2 = layers.LSTM(32)(encoded_text1)
+        encoded_text1 = layers.LSTM(32,
+                                    return_sequences=True,
+                                    dropout=dropout,
+                                    recurrent_dropout=dropout)(embedded_text)
+        encoded_text2 = layers.LSTM(32,
+                                    dropout=dropout,
+                                    recurrent_dropout=dropout)(encoded_text1)
 
         category = layers.Dense(2, activation='sigmoid')(encoded_text2)
 
