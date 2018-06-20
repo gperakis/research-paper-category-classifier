@@ -163,7 +163,7 @@ class DataLoader:
         # convert the int index to str
         train_val_df['Article'] = train_val_df['Article'].apply(str)
 
-        # Converting NaN's to None's
+        # Converting NaN's to fNone's
         train_val_df = train_val_df.where((pd.notnull(train_val_df)), None)
 
         # Merging the train ids with the article metadata in order to get the features.
@@ -303,6 +303,8 @@ def restore_data_loader():
         b = pickle.load(handle)
 
     return b
+
+
 
 
 if __name__ == "__main__":

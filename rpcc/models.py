@@ -231,8 +231,8 @@ class FeedForward(ModelNN):
         graph_input = Input(shape=(self.max_sequence_length,), dtype='float32', name='graph')
 
         deep1 = layers.Dense(128, activation='relu')(graph_input)
-        deep2 = layers.Dense(64, activation='relu')(deep1)
-        category = layers.Dense(28, activation='softmax')(deep2)
+        deep3 = layers.Dense(64, activation='relu')(deep1)
+        category = layers.Dense(28, activation='softmax')(deep3)
 
         # model = Model([graph_input, abstract_input, title_input, author_input], category)
         model = Model([graph_input], category)

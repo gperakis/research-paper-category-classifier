@@ -7,7 +7,7 @@ from sklearn.linear_model import LogisticRegression
 
 from rpcc import DATA_DIR
 
-G = nx.read_edgelist(os.path.join(DATA_DIR, 'Cit-HepTh.txt'),
+G = nx.read_edgelist(os.path.join(DATA_DIR, 'raw/Cit-HepTh.txt'),
                      delimiter='\t',
                      create_using=nx.DiGraph())
 
@@ -17,7 +17,7 @@ print("Edges: ", G.number_of_edges())
 # Read training data
 train_ids = list()
 y_train = list()
-with open(os.path.join(DATA_DIR, 'train.csv'), 'r') as f:
+with open(os.path.join(DATA_DIR, 'raw/train.csv'), 'r') as f:
     next(f)
     for line in f:
         t = line.split(',')
@@ -48,7 +48,7 @@ for i in range(n_train):
 # Create a directed graph
 # Read test data
 test_ids = list()
-with open(os.path.join(DATA_DIR, 'test.csv'), 'r') as f:
+with open(os.path.join(DATA_DIR, 'raw/test.csv'), 'r') as f:
     next(f)
     for line in f:
         test_ids.append(line[:-2])
@@ -74,7 +74,7 @@ node_clf.fit(X_train, y_train)
 y_pred = node_clf.predict_proba(X_test)
 
 # Write predictions to a file
-with open(os.path.join(DATA_DIR, 'sample_submission_graph.csv'), 'w') as csvfile:
+with open(os.path.join(DATA_DIR, 'new_sample_submission_graph.csv'), 'w') as csvfile:
     writer = csv.writer(csvfile, delimiter=',')
     lst = node_clf.classes_.tolist()
     lst.insert(0, "Article")

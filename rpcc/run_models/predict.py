@@ -32,22 +32,12 @@ if __name__ == "__main__":
 
     loaded_model = load_model('title_rnn.h5')
 
-    predicted_classes = loaded_model.predict(padded_sequences)
-
-    print(predicted_classes.shape)
-
-    header = ["Acta", "Adv.Theor.Math.Phys.", "Annals", "Class.Quant.Grav.", "Commun.Math.Phys.",
-              "Eur.Phys.J.", "Fortsch.Phys.", "Int.", "Int.J.Mod.Phys.", "Int.J.Theor.Phys.", "J.Geom.Phys.",
-              "J.Math.Phys.", "J.Phys.", "JHEP", "Lett.Math.Phys.", "Mod.", "Mod.Phys.Lett.", "Nucl.",
-              "Nucl.Phys.", "Nucl.Phys.Proc.Suppl.", "Nuovo", "Phys.", "Phys.Lett.", "Phys.Rev.",
-              "Phys.Rev.Lett.", "Prog.Theor.Phys.", "Theor.Math.Phys.", "Z.Phys."]
-
-    x = pd.DataFrame(data=x_test.index.values, columns=['Article'])
-    prediction_df = pd.DataFrame(data=predicted_classes, columns=header)
-
-    result = pd.concat([x, prediction_df], axis=1)
-
-    print(result.head())
+    preds = pd.DataFrame(loaded_model.predict(padded_sequences))
+    preds.columns = sorted(dl_obj.targets)
+    preds.index = dl_obj.x_test['Article']
+    preds.reset_index(inplace=True)
 
     outfile_path = os.path.join(DATA_DIR, 'predictions_titles.csv')
-    result.to_csv(outfile_path, sep='\t', index=False)
+    preds.to_csv(outfile_path, sep=',', index=False)
+
+
