@@ -4,7 +4,7 @@ import pickle
 import re
 from itertools import combinations
 from random import choice
-
+from rpcc import load_data
 import networkx as nx
 import numpy as np
 import pandas as pd
@@ -151,10 +151,10 @@ class TextFeaturesExtractor(FeatureExtractor):
         :param authors: An iterable of strings containing multiple authors in each string.
         :return: A networkX graph of all the connections between the authors.
         """
-        if isinstance(authors, pd.Series):
+        if authors:
 
             # instantiating a simple Graph.
-            G = nx.Graph()
+            G = nx.DiGraph()
 
             for authors_str in authors:
                 # cleaning up the authors. Returns a list of authors.
@@ -611,6 +611,7 @@ class GraphFeaturesExtractor:
         node_metrics = list()
         for node in self.directed_graph.nodes():
             node_features = {
+                'node': node,
                 'avg_neigh_deg': avg_neigh_degree_dict[node],
                 'out_degree': out_degree_dict[node],
                 'in_degree': in_degree_dict[node],
@@ -636,16 +637,43 @@ class GraphFeaturesExtractor:
         node_metrics_df = pd.DataFrame(node_metrics)
         return node_metrics_df
 
-    def create_node2vec_embeddings(self, emb_size=200):
+    def create_node2vec_embeddings(self,
+                                   emb_size=200,
+                                   filename: str = 'glove.citation.graph.nodes',
+                                   load_embeddings: bool = False,
+                                   save_embeddings: bool = True
+                                   ):
         """
 
+        :param emb_size:
+        :param filename:
+        :param load_embeddings:
+        :param save_embeddings:
         :return:
         """
+        assert emb_size in [50, 100, 200, 300]
+
+        filename = '{}.{}d.pickle'.format(filename, emb_size)
+        filepath = os.path.join(PROCESSED_DATA_DIR, 'embeddings', filename)
+
+        if load_embeddings:
+            print('Loading Embeddings file: {}'.format(filepath))
+            with open(filepath, 'rb') as handle:
+                embeddings_dict = pickle.load(handle)
+                return embeddings_dict
+
         walks = self.generate_walks(num_walks=5, walk_length=10)
 
-        embeddings = self.learn_embeddings(walks, window_size=5, d=emb_size)
+        embeddings_dict = self.learn_embeddings(walks, window_size=5, d=emb_size)
 
-        return embeddings
+        if save_embeddings:
+            print('Saving Embeddings file: {}'.format(filepath))
+            with open(filepath, 'wb') as handle:
+                pickle.dump(embeddings_dict,
+                            handle,
+                            protocol=pickle.HIGHEST_PROTOCOL)
+
+        return embeddings_dict
 
 
 def create_node2vec_embeddings_from_texts(texts: iter,
@@ -701,15 +729,43 @@ def create_node2vec_embeddings_from_texts(texts: iter,
 
 
 if __name__ == "__main__":
-    papers_path = os.path.join(RAW_DATA_DIR, 'node_information.csv')
+    pass
+    #################################################################################
+    # papers_path = os.path.join(RAW_DATA_DIR, 'node_information.csv')
+    #
+    # # abstracts =pd.read_csv(papers_path, usecols=['abstract'])['abstract']
+    # titles = pd.read_csv(papers_path, usecols=['title'])['title']
+    #
+    # for emb_size in [50, 100, 200, 300]:
+    #     create_node2vec_embeddings_from_texts(texts=titles,
+    #                                           window_size=3,
+    #                                           emb_size=emb_size,
+    #                                           filename='glove.titles.nodes',
+    #                                           load_embeddings=False,
+    #                                           save_embeddings=True)
+    #################################################################################
 
-    # abstracts =pd.read_csv(papers_path, usecols=['abstract'])['abstract']
-    titles = pd.read_csv(papers_path, usecols=['title'])['title']
+    #################################################################################
+    # dl_obj = load_data.DataLoader()
+    # citations_graph = dl_obj.create_citation_network()
+    # gfe_obj = GraphFeaturesExtractor(graph=citations_graph)
+    # for emb_d in [50, 100, 200, 300]:
+    #     gfe_obj.create_node2vec_embeddings(emb_size=emb_d,
+    #                                        filename='glove.citation.graph.nodes',
+    #                                        save_embeddings=True,
+    #                                        load_embeddings=False)
+    #################################################################################
 
-    for emb_size in [50, 100, 200, 300]:
-        create_node2vec_embeddings_from_texts(texts=titles,
-                                              window_size=3,
-                                              emb_size=emb_size,
-                                              filename='glove.titles.nodes',
-                                              load_embeddings=False,
-                                              save_embeddings=True)
+    #################################################################################
+    # dl_obj = load_data.DataLoader()
+    # dl_obj.load_article_metadata()
+    # authors_list = dl_obj.authors
+    # tfe_obj = TextFeaturesExtractor(input_data=None)
+    # authors_graph = tfe_obj.create_authors_graph(authors=authors_list)
+    # gfe_obj = GraphFeaturesExtractor(graph=authors_graph)
+    # for emb_d in [50, 100, 200, 300]:
+    #     gfe_obj.create_node2vec_embeddings(emb_size=emb_d,
+    #                                        filename='glove.authors.graph.nodes',
+    #                                        save_embeddings=True,
+    #                                        load_embeddings=False)
+    #################################################################################

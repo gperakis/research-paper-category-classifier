@@ -9,7 +9,7 @@ from keras.layers import Input
 from keras.models import Model
 from keras.optimizers import Adam
 from rpcc import DATA_DIR
-
+from keras import regularizers
 
 class ModelNN:
     def __init__(self,
@@ -36,7 +36,7 @@ class ModelNN:
         """
         Abstract method implements model building with Keras
         """
-        return None
+        pass
 
     def fit(self, X, y, epochs: int = 10, val_size=0.2, bs=128, lr=0.001):
         """
@@ -158,46 +158,59 @@ class AbstractEmbedding(ModelNN):
         self.model = model
 
 
-class TitleEmbedding(ModelNN):
-    def __init__(self,
-                 emb_size: int,
+class CNN(ModelNN):
+    """
+
+    """
+
+    def __init__(self, emb_size: int,
                  voc_size: int,
                  max_sequence_length: int):
         """
-        TitleEmbedding class implements an LSTM model on a given corpus.
 
-        We feed to the model of this class data of the titles of research papers. For each observation,
-        we have transformed the title corpus to an array of integers (output of Keras tokenizer).
-        The labels of the observations stand for the category of the domain of the paper.
-
-        :param emb_size: int, the length of the word embeddings
-        :param voc_size: int, the unique tokens of the corpus
-        :param max_sequence_length: int, the max number of tokens of the input the sentence
+        :param emb_size:
+        :param voc_size:
+        :param max_sequence_length:
         """
         super().__init__(emb_size, voc_size, max_sequence_length)
 
-    def build_model(self):
+    def build_model(self, dropout=0.2, deep_activ='relu'):
         """
-        Creates and compiles an lstm model with Keras deep learning library
-        """
+        Creates and compiles a cnn model with Keras deep learning library
 
-        # define model
+        """
+        assert deep_activ in ['relu', 'tanh']
+
         text_input = Input(shape=(self.max_sequence_length,), dtype='int32', name='text')
-        embedded_text = layers.Embedding(self.voc_size, self.emb_size)(text_input)
-        encoded_text1 = layers.LSTM(16, return_sequences=True)(embedded_text)
-        encoded_text2 = layers.LSTM(16)(encoded_text1)
+        embedded_text = layers.Embedding(self.voc_size,
+                                         self.emb_size,
+                                         embeddings_regularizer=regularizers.l2(0.001))(text_input)
 
-        category = layers.Dense(2, activation='sigmoid')(encoded_text2)
+        l_cov1 = layers.Conv1D(128, 5, activation=deep_activ)(embedded_text)
+        l_drop1 = layers.Dropout(dropout)(l_cov1)
+        l_pool1 = layers.MaxPooling1D(5)(l_drop1)
+
+        l_cov2 = layers.Conv1D(128, 5,
+                               activation=deep_activ)(l_pool1)
+        l_drop2 = layers.Dropout(dropout)(l_cov2)
+        l_pool2 = layers.MaxPooling1D(5)(l_drop2)
+
+        l_cov3 = layers.Conv1D(128, 5,
+                               activation=deep_activ)(l_pool2)
+        l_drop3 = layers.Dropout(dropout)(l_cov3)
+        l_pool3 = layers.MaxPooling1D(5)(l_drop3)  # global max pooling
+
+        l_flat = layers.Flatten()(l_pool3)
+        l_dense = layers.Dense(128, activation='relu')(l_flat)
+        l_drop_dense = layers.Dropout(dropout)(l_dense)
+
+        category = layers.Dense(28, activation='softmax')(l_drop_dense)
 
         model = Model(text_input, [category])
 
-        model.compile(optimizer='rmsprop',
-                      loss='binary_crossentropy',
-                      metrics=['acc'])
+        self.model = model
 
         print(model.summary())
-
-        self.model = model
 
 
 class FeedForward(ModelNN):

@@ -43,8 +43,6 @@ class DataLoader:
 
         # Graphs
         self.citation_graph = None
-        self.authors_graph = None
-        self.authors_label_props = None
 
         # X - features
         self.x_train_validation = None
@@ -72,6 +70,7 @@ class DataLoader:
         # all abstracts, all titles
         self.abstracts = list()
         self.titles = list()
+        self.authors = list()
 
     def get_stratified_data(self,
                             X: pd.DataFrame,
@@ -116,7 +115,7 @@ class DataLoader:
         return sorted([(i, round(Counter(x)[i] / float(len(x)) * 100.0, 3)) for i in Counter(x)],
                       key=lambda x: x[1])
 
-    def __load_article_metadata(self):
+    def load_article_metadata(self):
         """
         Reads data and stores it as Pandas DataFrame
 
@@ -130,8 +129,9 @@ class DataLoader:
         self.article_metadata = df
         self.abstracts = list(df['abstract'])
         self.titles = list(df['title'])
+        self.authors = list(df['authors'])
 
-    def _create_citation_network(self) -> nx.DiGraph:
+    def create_citation_network(self) -> nx.DiGraph:
         """
         Creates a networkX directed network object that stores the citations among the articles
 
@@ -223,10 +223,10 @@ class DataLoader:
         """
 
         # Load data about each paper in a dataframe and set it to the constructor
-        self.__load_article_metadata()
+        self.load_article_metadata()
 
         # Create a directed graph about the citations and store it in the constructor
-        self._create_citation_network()
+        self.create_citation_network()
 
         # Load consolidated train & validation dataframe
         self.__load_training_data()
