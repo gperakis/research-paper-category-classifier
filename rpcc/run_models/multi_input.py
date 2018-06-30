@@ -5,9 +5,11 @@ from keras.layers import Input
 from keras.models import Model
 from keras.optimizers import Adam
 from sklearn.preprocessing import LabelBinarizer
-
+from keras.preprocessing.sequence import pad_sequences
 from rpcc.create_features import TextFeaturesExtractor, GraphFeaturesExtractor
 from rpcc.load_data import DataLoader
+from keras import callbacks
+from rpcc import TENSORBOARD_LOGS_DIR
 
 
 # from keras.models import load_model
@@ -142,15 +144,66 @@ print(x_test_static.shape)
 ############################################################################
 ############################################################################
 ############################################################################
+authors_list = dl_obj.authors
+tfe_obj = TextFeaturesExtractor(input_data=None)
+authors_graph = tfe_obj.create_authors_graph(authors=authors_list)
+gfe_obj = GraphFeaturesExtractor(graph=authors_graph)
 
+authors_embeddings_index = gfe_obj.create_node2vec_embeddings(
+    emb_size=NODE_2_VEC_EMB_SIZE,
+    filename='glove.authors.graph.nodes',
+    load_embeddings=True)
+
+cleaned_authors = [tfe_obj.clean_up_authors(authors) for authors in authors_list]
+
+all_authors = list(filter(None, {item for sublist in cleaned_authors for item in sublist}))
+word_index = {author: i + 1 for i, author in enumerate(all_authors + ['<UNK>'])}
+
+print('Found {} unique authors tokens.'.format(len(word_index)))
+
+authors_input_size = len(authors_embeddings_index) + 1
+# constructing an embedding matrix
+authors_embedding_matrix = np.random.random((authors_input_size, NODE_2_VEC_EMB_SIZE))
+for word, i in word_index.items():
+    author_embedding_vector = authors_embeddings_index.get(word)
+    if author_embedding_vector is not None:
+        # words not found in embedding index will be all-zeros.
+        authors_embedding_matrix[i] = author_embedding_vector
+
+print(authors_embedding_matrix.shape)
+
+x_train_val_authors = dl_obj.x_train_validation['authors']
+x_test_authors = dl_obj.x_test['authors']
+
+x_train_val_authors_list = [tfe_obj.clean_up_authors(authors) for authors in x_train_val_authors]
+x_test_authors_list = [tfe_obj.clean_up_authors(authors) for authors in x_test_authors]
+
+authors_max_length = 0
+x_train_val_sequences = list()
+for authors_lst in x_train_val_authors_list:
+    authors_seqs = [word_index.get(author, word_index.get('<UNK>')) for author in authors_lst]
+    authors_max_length = len(authors_seqs) if len(authors_seqs) > authors_max_length else authors_max_length
+    x_train_val_sequences.append(authors_seqs)
+
+x_test_sequences = list()
+for authors_lst in x_test_authors_list:
+    authors_seqs = [word_index.get(author, word_index.get('<UNK>')) for author in authors_lst]
+    x_test_sequences.append(authors_seqs)
+
+x_train_val_authors_padded = pad_sequences(x_train_val_sequences, maxlen=authors_max_length, padding='post')
+x_test_authors_padded = pad_sequences(x_test_sequences, maxlen=authors_max_length, padding='post')
+
+############################################################################
+############################################################################
+############################################################################
 dropout = 0.5
 RNN_EMB_SIZE = 300
-RNN_SIZE = 50
+RNN_SIZE = 100
 STATIC_INPUT_SIZE = x_train_val_static.shape[1]
 lr = 0.001
 regularization = regularizers.l2(0.01)
 N_EPOCHS = 50
-BATCH_SIZE = 64
+BATCH_SIZE = 128
 VALIDATION_SIZE = 0.1
 
 abstracts_voc_size = len(x_train_val_abstracts_int2word)
@@ -159,41 +212,79 @@ titles_voc_size = len(x_train_val_titles_int2word)
 # define model
 
 # abstract part
-abstract_input = Input(shape=(x_train_val_abstracts_max_length,), dtype='int32', name='abstract_input')
-embedded_abstract_text = layers.Embedding(abstracts_voc_size, RNN_EMB_SIZE)(abstract_input)
-encoded_abstract_text = layers.LSTM(RNN_SIZE, return_sequences=False,
-                                    dropout=dropout, recurrent_dropout=dropout)(embedded_abstract_text)
+abstract_input = Input(shape=(x_train_val_abstracts_max_length,),
+                       dtype='int32',
+                       name='abstract_input')
+embedded_abstract_text = layers.Embedding(abstracts_voc_size,
+                                          RNN_EMB_SIZE,
+                                          name='abstract_emb_layer')(abstract_input)
+encoded_abstract_text = layers.LSTM(RNN_SIZE,
+                                    return_sequences=False,
+                                    dropout=dropout,
+                                    recurrent_dropout=dropout,
+                                    name='abstract_output_layer')(embedded_abstract_text)
 
 # title part
-title_input = Input(shape=(x_train_val_titles_max_length,), dtype='int32', name='title_input')
-embedded_title_text = layers.Embedding(titles_voc_size, RNN_EMB_SIZE)(title_input)
-encoded_title_text = layers.LSTM(RNN_SIZE, return_sequences=False,
-                                 dropout=dropout, recurrent_dropout=dropout)(embedded_title_text)
+title_input = Input(shape=(x_train_val_titles_max_length,),
+                    dtype='int32',
+                    name='title_input')
+embedded_title_text = layers.Embedding(titles_voc_size,
+                                       RNN_EMB_SIZE,
+                                       name='title_emb_layer')(title_input)
+encoded_title_text = layers.LSTM(RNN_SIZE,
+                                 return_sequences=False,
+                                 dropout=dropout,
+                                 recurrent_dropout=dropout,
+                                 name='title_output_layer')(embedded_title_text)
+
+# authors part
+authors_input = layers.Input(shape=(authors_max_length,), dtype='int32')
+authors_emb_layer = layers.Embedding(authors_input_size,
+                                     NODE_2_VEC_EMB_SIZE,
+                                     weights=[authors_embedding_matrix],
+                                     input_length=authors_max_length,
+                                     trainable=True,
+                                     name='authors_emb_layer')
+
+embedded_sequences = authors_emb_layer(authors_input)
+encoded_authors = layers.Bidirectional(layers.LSTM(RNN_SIZE,
+                                                   return_sequences=False,
+                                                   dropout=dropout,
+                                                   recurrent_dropout=dropout),
+                                       name='authors_output_layer')(embedded_sequences)
 
 # metrics part
-metrics_input = Input(shape=(STATIC_INPUT_SIZE,), dtype='float32', name='metrics_input')
+metrics_input = Input(shape=(STATIC_INPUT_SIZE,),
+                      dtype='float32',
+                      name='metrics_input')
 metrics_deep_1 = layers.Dense(128,
                               activation='tanh',
                               kernel_initializer='glorot_normal',
-                              kernel_regularizer=regularization)(metrics_input)
-metrics_deep_1 = layers.BatchNormalization()(metrics_deep_1)
-metrics_deep_1 = layers.Dropout(dropout)(metrics_deep_1)
+                              kernel_regularizer=regularization,
+                              name='metrics_deep_layer_1')(metrics_input)
+metrics_deep_1 = layers.BatchNormalization(name='metrics_deep_layer_1_batch_norm')(metrics_deep_1)
+metrics_deep_1 = layers.Dropout(dropout, name='metrics_deep_layer_1_dropout')(metrics_deep_1)
 
 merged_layer = layers.concatenate([encoded_abstract_text,
                                    encoded_title_text,
-                                   metrics_deep_1], axis=-1)
+                                   encoded_authors,
+                                   metrics_deep_1],
+                                  axis=-1,
+                                  name='merged_layer')
 
 merged_layer_1 = layers.Dense(64,
                               activation='tanh',
                               kernel_initializer='glorot_normal',
-                              kernel_regularizer=regularization)(merged_layer)
+                              kernel_regularizer=regularization,
+                              name='merged_deep_layer_1')(merged_layer)
 
-merged_layer_1 = layers.BatchNormalization()(merged_layer_1)
-merged_layer_1 = layers.Dropout(dropout)(merged_layer_1)
+merged_layer_1 = layers.BatchNormalization(name='merged_deep_layer_1_batch_norm')(merged_layer_1)
+merged_layer_1 = layers.Dropout(dropout,
+                                name='merged_deep_layer_1_dropout')(merged_layer_1)
 
 category = layers.Dense(28, activation='softmax', name='main_output')(merged_layer_1)
 
-model = Model([abstract_input, title_input, metrics_input], category)
+model = Model([abstract_input, title_input, authors_input, metrics_input], category)
 
 model.compile(optimizer='adam',
               loss='categorical_crossentropy',
@@ -203,11 +294,31 @@ print(model.summary())
 
 opt = Adam(lr=lr, beta_1=0.9, beta_2=0.999, epsilon=None, decay=0.0, amsgrad=False)
 
+tbCallBack = callbacks.TensorBoard(log_dir=TENSORBOARD_LOGS_DIR,
+                                   histogram_freq=0,
+                                   write_graph=True,
+                                   write_images=True)
+
+callbacks_list = [
+    # callbacks.TensorBoard(log_dir=TENSORBOARD_LOGS_DIR,
+    #                       histogram_freq=0,
+    #                       write_graph=True,
+    #                       write_images=True),
+    callbacks.EarlyStopping(monitor='acc',
+                            patience=1),
+    callbacks.ModelCheckpoint(filepath='all_inputs_model_dropP{}.h5'.format(dropout),
+                              monitor='val_loss',
+                              save_best_only=True)]
+
 history = model.fit(x=[x_train_val_abstracts_padded,
                        x_train_val_titles_padded,
+                       x_train_val_authors_padded,
                        x_train_val_static],
                     y=y_train_val_one_hot,
                     epochs=N_EPOCHS,
                     batch_size=BATCH_SIZE,
                     validation_split=VALIDATION_SIZE,
-                    verbose=2)
+                    verbose=2,
+                    callbacks=callbacks_list)
+
+# model.save('all_inputs_model.h5')
