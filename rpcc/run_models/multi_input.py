@@ -209,104 +209,142 @@ VALIDATION_SIZE = 0.1
 abstracts_voc_size = len(x_train_val_abstracts_int2word)
 titles_voc_size = len(x_train_val_titles_int2word)
 
+
 # define model
 
-# abstract part
-abstract_input = Input(shape=(x_train_val_abstracts_max_length,),
-                       dtype='int32',
-                       name='abstract_input')
-embedded_abstract_text = layers.Embedding(abstracts_voc_size,
-                                          RNN_EMB_SIZE,
-                                          name='abstract_emb_layer')(abstract_input)
-encoded_abstract_text = layers.LSTM(RNN_SIZE,
-                                    return_sequences=False,
-                                    dropout=dropout,
-                                    recurrent_dropout=dropout,
-                                    name='abstract_output_layer')(embedded_abstract_text)
+def build_model(rnn_size,
+                rnn_emb_size,
+                abstracts_max_length,
+                abstracts_voc_size,
+                titles_max_length,
+                titles_voc_size,
+                authors_max_length,
+                authors_input_size,
+                authors_embedding_matrix,
+                node_2_vec_emb_size,
+                regularization,
+                static_input_size,
+                dropout):
+    """
 
-# title part
-title_input = Input(shape=(x_train_val_titles_max_length,),
-                    dtype='int32',
-                    name='title_input')
-embedded_title_text = layers.Embedding(titles_voc_size,
-                                       RNN_EMB_SIZE,
-                                       name='title_emb_layer')(title_input)
-encoded_title_text = layers.LSTM(RNN_SIZE,
-                                 return_sequences=False,
-                                 dropout=dropout,
-                                 recurrent_dropout=dropout,
-                                 name='title_output_layer')(embedded_title_text)
+    :return:
+    """
+    # abstract part
+    abstract_input = Input(shape=(abstracts_max_length,),
+                           dtype='int32',
+                           name='abstract_input')
+    embedded_abstract_text = layers.Embedding(abstracts_voc_size,
+                                              rnn_emb_size,
+                                              name='abstract_emb_layer')(abstract_input)
+    encoded_abstract_text = layers.LSTM(rnn_size,
+                                        return_sequences=False,
+                                        dropout=dropout,
+                                        recurrent_dropout=dropout,
+                                        name='abstract_output_layer')(embedded_abstract_text)
 
-# authors part
-authors_input = layers.Input(shape=(authors_max_length,), dtype='int32')
-authors_emb_layer = layers.Embedding(authors_input_size,
-                                     NODE_2_VEC_EMB_SIZE,
-                                     weights=[authors_embedding_matrix],
-                                     input_length=authors_max_length,
-                                     trainable=True,
-                                     name='authors_emb_layer')
+    # title part
+    title_input = Input(shape=(titles_max_length,),
+                        dtype='int32',
+                        name='title_input')
+    embedded_title_text = layers.Embedding(titles_voc_size,
+                                           rnn_emb_size,
+                                           name='title_emb_layer')(title_input)
+    encoded_title_text = layers.LSTM(rnn_size,
+                                     return_sequences=False,
+                                     dropout=dropout,
+                                     recurrent_dropout=dropout,
+                                     name='title_output_layer')(embedded_title_text)
 
-embedded_sequences = authors_emb_layer(authors_input)
-encoded_authors = layers.Bidirectional(layers.LSTM(RNN_SIZE,
-                                                   return_sequences=False,
-                                                   dropout=dropout,
-                                                   recurrent_dropout=dropout),
-                                       name='authors_output_layer')(embedded_sequences)
+    # authors part
+    authors_input = layers.Input(shape=(authors_max_length,), dtype='int32')
+    authors_emb_layer = layers.Embedding(authors_input_size,
+                                         node_2_vec_emb_size,
+                                         weights=[authors_embedding_matrix],
+                                         input_length=authors_max_length,
+                                         trainable=True,
+                                         name='authors_emb_layer')
 
-# metrics part
-metrics_input = Input(shape=(STATIC_INPUT_SIZE,),
-                      dtype='float32',
-                      name='metrics_input')
-metrics_deep_1 = layers.Dense(128,
-                              activation='tanh',
-                              kernel_initializer='glorot_normal',
-                              kernel_regularizer=regularization,
-                              name='metrics_deep_layer_1')(metrics_input)
-metrics_deep_1 = layers.BatchNormalization(name='metrics_deep_layer_1_batch_norm')(metrics_deep_1)
-metrics_deep_1 = layers.Dropout(dropout, name='metrics_deep_layer_1_dropout')(metrics_deep_1)
+    embedded_sequences = authors_emb_layer(authors_input)
+    encoded_authors = layers.Bidirectional(layers.LSTM(rnn_size,
+                                                       return_sequences=False,
+                                                       dropout=dropout,
+                                                       recurrent_dropout=dropout),
+                                           name='authors_output_layer')(embedded_sequences)
 
-merged_layer = layers.concatenate([encoded_abstract_text,
-                                   encoded_title_text,
-                                   encoded_authors,
-                                   metrics_deep_1],
-                                  axis=-1,
-                                  name='merged_layer')
+    # metrics part
+    metrics_input = Input(shape=(static_input_size,),
+                          dtype='float32',
+                          name='metrics_input')
+    metrics_deep_1 = layers.Dense(128,
+                                  activation='tanh',
+                                  kernel_initializer='glorot_normal',
+                                  kernel_regularizer=regularization,
+                                  name='metrics_deep_layer_1')(metrics_input)
+    metrics_deep_1 = layers.BatchNormalization(name='metrics_deep_layer_1_batch_norm')(metrics_deep_1)
+    metrics_deep_1 = layers.Dropout(dropout, name='metrics_deep_layer_1_dropout')(metrics_deep_1)
 
-merged_layer_1 = layers.Dense(64,
-                              activation='tanh',
-                              kernel_initializer='glorot_normal',
-                              kernel_regularizer=regularization,
-                              name='merged_deep_layer_1')(merged_layer)
+    merged_layer = layers.concatenate([encoded_abstract_text,
+                                       encoded_title_text,
+                                       encoded_authors,
+                                       metrics_deep_1],
+                                      axis=-1,
+                                      name='merged_layer')
 
-merged_layer_1 = layers.BatchNormalization(name='merged_deep_layer_1_batch_norm')(merged_layer_1)
-merged_layer_1 = layers.Dropout(dropout,
-                                name='merged_deep_layer_1_dropout')(merged_layer_1)
+    merged_layer_1 = layers.Dense(64,
+                                  activation='tanh',
+                                  kernel_initializer='glorot_normal',
+                                  kernel_regularizer=regularization,
+                                  name='merged_deep_layer_1')(merged_layer)
 
-category = layers.Dense(28, activation='softmax', name='main_output')(merged_layer_1)
+    merged_layer_1 = layers.BatchNormalization(name='merged_deep_layer_1_batch_norm')(merged_layer_1)
+    merged_layer_1 = layers.Dropout(dropout,
+                                    name='merged_deep_layer_1_dropout')(merged_layer_1)
 
-model = Model([abstract_input, title_input, authors_input, metrics_input], category)
+    category = layers.Dense(28, activation='softmax', name='main_output')(merged_layer_1)
 
-model.compile(optimizer='adam',
-              loss='categorical_crossentropy',
-              metrics=['acc'])
+    mixed_model = Model([abstract_input,
+                         title_input,
+                         authors_input,
+                         metrics_input],
+                        category)
 
-print(model.summary())
+    mixed_model.compile(optimizer='adam',
+                        loss='categorical_crossentropy',
+                        metrics=['acc'])
 
-opt = Adam(lr=lr, beta_1=0.9, beta_2=0.999, epsilon=None, decay=0.0, amsgrad=False)
+    print(mixed_model.summary())
+    return mixed_model
 
-tbCallBack = callbacks.TensorBoard(log_dir=TENSORBOARD_LOGS_DIR,
-                                   histogram_freq=0,
-                                   write_graph=True,
-                                   write_images=True)
+
+model = build_model(rnn_size=RNN_SIZE,
+                    rnn_emb_size=RNN_EMB_SIZE,
+                    abstracts_max_length=x_train_val_abstracts_max_length,
+                    abstracts_voc_size=abstracts_voc_size,
+                    titles_max_length=x_train_val_titles_max_length,
+                    titles_voc_size=titles_voc_size,
+                    authors_max_length=authors_max_length,
+                    authors_input_size=authors_input_size,
+                    authors_embedding_matrix=authors_embedding_matrix,
+                    node_2_vec_emb_size=NODE_2_VEC_EMB_SIZE,
+                    regularization=regularization,
+                    static_input_size=STATIC_INPUT_SIZE,
+                    dropout=dropout)
+
+opt = Adam(lr=lr,
+           beta_1=0.9,
+           beta_2=0.999,
+           epsilon=None,
+           decay=0.0,
+           amsgrad=False)
 
 callbacks_list = [
-    # callbacks.TensorBoard(log_dir=TENSORBOARD_LOGS_DIR,
-    #                       histogram_freq=0,
-    #                       write_graph=True,
-    #                       write_images=True),
-    callbacks.EarlyStopping(monitor='acc',
-                            patience=1),
-    callbacks.ModelCheckpoint(filepath='all_inputs_model_dropP{}.h5'.format(dropout),
+    callbacks.TensorBoard(log_dir=TENSORBOARD_LOGS_DIR,
+                          histogram_freq=0,
+                          write_graph=True,
+                          write_images=True),
+    callbacks.EarlyStopping(monitor='val_loss',
+                            patience=2),
+    callbacks.ModelCheckpoint(filepath='all_inputs_model_drop_{}.h5'.format(dropout),
                               monitor='val_loss',
                               save_best_only=True)]
 
