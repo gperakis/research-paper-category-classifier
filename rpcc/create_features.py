@@ -96,7 +96,8 @@ class TextFeaturesExtractor(FeatureExtractor):
             temp_authors = re.sub(r'\((.*?)', '', temp_authors)
 
             cleaned_authors = temp_authors.split(',')
-            cleaned_authors = [a.strip() for a in cleaned_authors]
+            cleaned_authors = [a.strip().lower() for a in cleaned_authors]
+            cleaned_authors = [author for author in cleaned_authors if len(author) > 2]
 
             return cleaned_authors
 
@@ -162,17 +163,17 @@ class TextFeaturesExtractor(FeatureExtractor):
                 # cleaning up the authors. Returns a list of authors.
                 cleaned_authors = self.clean_up_authors(authors_str)
                 # only keeping those authors that have length over 2 characters.
-                co_authors = [author for author in cleaned_authors if len(author) > 2]
 
-                if co_authors:
+                if len(cleaned_authors) > 1:
                     # extracting all author combinations per pair.
-                    for comb in itertools.combinations(co_authors, 2):
-
+                    for comb in itertools.combinations(cleaned_authors, 2):
                         # if there is already an edge between the two authors, add more weight.
                         if G.has_edge(comb[0], comb[1]):
                             G[comb[0]][comb[1]]['weight'] += 1
                         else:
                             G.add_edge(comb[0], comb[1], weight=1)
+                elif len(cleaned_authors) == 1:
+                    G.add_node(cleaned_authors[0])
 
             return G
 
@@ -392,7 +393,6 @@ class GraphFeaturesExtractor:
         :param d: The output dimension of the node embeddings.
         :return:
         """
-
         model = Word2Vec(sentences=walks,
                          size=d,
                          min_count=0,
@@ -725,9 +725,11 @@ class GraphFeaturesExtractor:
                 embeddings_dict = pickle.load(handle)
                 return embeddings_dict
 
-        walks = self.generate_walks(num_walks=5, walk_length=10)
+        walks = self.generate_walks(num_walks=10, walk_length=10)
 
-        embeddings_dict = self.learn_embeddings(walks, window_size=5, d=emb_size)
+        unique_walks = [list(x) for x in set(tuple(x) for x in walks)]
+
+        embeddings_dict = self.learn_embeddings(unique_walks, window_size=5, d=emb_size)
 
         if save_embeddings:
             print('Saving Embeddings file: {}'.format(filepath))
@@ -818,17 +820,17 @@ if __name__ == "__main__":
     #                                        save_embeddings=True,
     #                                        load_embeddings=False)
     #################################################################################
-
-    #################################################################################
-    # dl_obj = load_data.DataLoader()
-    # dl_obj.load_article_metadata()
-    # authors_list = dl_obj.authors
-    # tfe_obj = TextFeaturesExtractor(input_data=None)
-    # authors_graph = tfe_obj.create_authors_graph(authors=authors_list)
-    # gfe_obj = GraphFeaturesExtractor(graph=authors_graph)
-    # for emb_d in [50, 100, 200, 300]:
-    #     gfe_obj.create_node2vec_embeddings(emb_size=emb_d,
-    #                                        filename='glove.authors.graph.nodes',
-    #                                        save_embeddings=True,
-    #                                        load_embeddings=False)
-    #################################################################################
+    #
+    ################################################################################
+    dl_obj = load_data.DataLoader()
+    dl_obj.load_article_metadata()
+    authors_list = dl_obj.authors
+    tfe_obj = TextFeaturesExtractor(input_data=None)
+    authors_graph = tfe_obj.create_authors_graph(authors=authors_list)
+    gfe_obj = GraphFeaturesExtractor(graph=authors_graph)
+    for emb_d in [50, 100, 200, 300]:
+        gfe_obj.create_node2vec_embeddings(emb_size=emb_d,
+                                           filename='glove.authors.graph.nodes',
+                                           save_embeddings=True,
+                                           load_embeddings=False)
+    ################################################################################

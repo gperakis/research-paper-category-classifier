@@ -186,22 +186,22 @@ class CNN(ModelNN):
                                          self.emb_size,
                                          embeddings_regularizer=regularizers.l2(0.001))(text_input)
 
-        l_cov1 = layers.Conv1D(128, 5, activation=deep_activ)(embedded_text)
+        l_cov1 = layers.Conv1D(64, 2, activation=deep_activ)(embedded_text)
         l_drop1 = layers.Dropout(dropout)(l_cov1)
-        l_pool1 = layers.MaxPooling1D(5)(l_drop1)
+        l_pool1 = layers.MaxPooling1D(2)(l_drop1)
 
-        l_cov2 = layers.Conv1D(128, 5,
+        l_cov2 = layers.Conv1D(64, 2,
                                activation=deep_activ)(l_pool1)
         l_drop2 = layers.Dropout(dropout)(l_cov2)
-        l_pool2 = layers.MaxPooling1D(5)(l_drop2)
+        l_pool2 = layers.MaxPooling1D(2)(l_drop2)
 
-        l_cov3 = layers.Conv1D(128, 5,
+        l_cov3 = layers.Conv1D(64, 2,
                                activation=deep_activ)(l_pool2)
         l_drop3 = layers.Dropout(dropout)(l_cov3)
-        l_pool3 = layers.MaxPooling1D(5)(l_drop3)  # global max pooling
+        l_pool3 = layers.MaxPooling1D(2)(l_drop3)  # global max pooling
 
         l_flat = layers.Flatten()(l_pool3)
-        l_dense = layers.Dense(128, activation='relu')(l_flat)
+        l_dense = layers.Dense(64, activation='relu')(l_flat)
         l_drop_dense = layers.Dropout(dropout)(l_dense)
 
         category = layers.Dense(28, activation='softmax')(l_drop_dense)
