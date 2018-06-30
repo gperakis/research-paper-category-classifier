@@ -196,19 +196,6 @@ x_test_authors_padded = pad_sequences(x_test_sequences, maxlen=authors_max_lengt
 ############################################################################
 ############################################################################
 ############################################################################
-dropout = 0.5
-RNN_EMB_SIZE = 300
-RNN_SIZE = 100
-STATIC_INPUT_SIZE = x_train_val_static.shape[1]
-lr = 0.001
-regularization = regularizers.l2(0.01)
-N_EPOCHS = 50
-BATCH_SIZE = 128
-VALIDATION_SIZE = 0.1
-
-abstracts_voc_size = len(x_train_val_abstracts_int2word)
-titles_voc_size = len(x_train_val_titles_int2word)
-
 
 # define model
 
@@ -237,7 +224,6 @@ def build_model(rnn_size,
                                               rnn_emb_size,
                                               name='abstract_emb_layer')(abstract_input)
     encoded_abstract_text = layers.LSTM(rnn_size,
-                                        return_sequences=False,
                                         dropout=dropout,
                                         recurrent_dropout=dropout,
                                         name='abstract_output_layer')(embedded_abstract_text)
@@ -250,7 +236,6 @@ def build_model(rnn_size,
                                            rnn_emb_size,
                                            name='title_emb_layer')(title_input)
     encoded_title_text = layers.LSTM(rnn_size,
-                                     return_sequences=False,
                                      dropout=dropout,
                                      recurrent_dropout=dropout,
                                      name='title_output_layer')(embedded_title_text)
@@ -266,7 +251,6 @@ def build_model(rnn_size,
 
     embedded_sequences = authors_emb_layer(authors_input)
     encoded_authors = layers.Bidirectional(layers.LSTM(rnn_size,
-                                                       return_sequences=False,
                                                        dropout=dropout,
                                                        recurrent_dropout=dropout),
                                            name='authors_output_layer')(embedded_sequences)
@@ -316,6 +300,19 @@ def build_model(rnn_size,
     return mixed_model
 
 
+DROPOUT = 0.4
+RNN_EMB_SIZE = 300
+RNN_SIZE = 150
+STATIC_INPUT_SIZE = x_train_val_static.shape[1]
+lr = 0.001
+regularization = regularizers.l2(0.01)
+N_EPOCHS = 50
+BATCH_SIZE = 64
+VALIDATION_SIZE = 0.1
+
+abstracts_voc_size = len(x_train_val_abstracts_int2word)
+titles_voc_size = len(x_train_val_titles_int2word)
+
 model = build_model(rnn_size=RNN_SIZE,
                     rnn_emb_size=RNN_EMB_SIZE,
                     abstracts_max_length=x_train_val_abstracts_max_length,
@@ -328,7 +325,7 @@ model = build_model(rnn_size=RNN_SIZE,
                     node_2_vec_emb_size=NODE_2_VEC_EMB_SIZE,
                     regularization=regularization,
                     static_input_size=STATIC_INPUT_SIZE,
-                    dropout=dropout)
+                    dropout=DROPOUT)
 
 opt = Adam(lr=lr,
            beta_1=0.9,
@@ -344,7 +341,7 @@ callbacks_list = [
                           write_images=True),
     callbacks.EarlyStopping(monitor='val_loss',
                             patience=2),
-    callbacks.ModelCheckpoint(filepath='all_inputs_model_drop_{}.h5'.format(dropout),
+    callbacks.ModelCheckpoint(filepath='all_inputs_model_drop_{}.h5'.format(DROPOUT),
                               monitor='val_loss',
                               save_best_only=True)]
 
