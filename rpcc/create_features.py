@@ -16,7 +16,9 @@ from keras.preprocessing.text import text_to_word_sequence
 from keras.utils import to_categorical
 from more_itertools import windowed, flatten
 from networkx.algorithms.community.label_propagation import label_propagation_communities
+from nltk.corpus import stopwords
 
+STOPWORDS = set(stopwords.words('english'))
 SPACY_NLP = spacy.load('en', parse=False, tag=False, entity=False)
 
 from rpcc import PROCESSED_DATA_DIR, CONTRACTION_MAP, RAW_DATA_DIR
@@ -177,7 +179,7 @@ class TextFeaturesExtractor(FeatureExtractor):
         else:
             raise NotImplementedError('Must load Node INFO first.')
 
-    def pre_process_text(self, texts: iter) -> dict:
+    def pre_process_text(self, texts: iter, remove_stopwords: bool = False) -> dict:
         """
         This method instantiates a tokenizer, and fits that tokenizer with the texts.
         Then creates tokenized sequences, calculates maximum texts length and padd the shorter texts
@@ -196,6 +198,8 @@ class TextFeaturesExtractor(FeatureExtractor):
             text = text.lower().strip()
             expanded = self.expand_contractions(text=text)
             # lemmatized = self.lemmatize_text(text=expanded)
+            if remove_stopwords:
+                expanded = ' '.join([i for i in expanded.lower().split() if i not in STOPWORDS])
             texts_clean.append(expanded)
 
         print('Fitting Tokenizer')
@@ -231,12 +235,15 @@ class TextFeaturesExtractor(FeatureExtractor):
     def text_to_padded_sequences(self,
                                  texts: iter,
                                  tokenizer: Tokenizer,
-                                 max_length: int) -> list:
+                                 max_length: int,
+                                 remove_stopwords: bool = False) -> list:
         """
 
         :param texts:
         :param tokenizer:
         :param max_length:
+        :param remove_stopwords:
+
         :return:
         """
 
@@ -246,6 +253,8 @@ class TextFeaturesExtractor(FeatureExtractor):
             text = text.lower().strip()
             expanded = self.expand_contractions(text=text)
             # lemmatized = self.lemmatize_text(text=expanded)
+            if remove_stopwords:
+                expanded = ' '.join([i for i in expanded.lower().split() if i not in STOPWORDS])
             texts_clean.append(expanded)
 
         # converting in sequences of integers.
@@ -584,7 +593,7 @@ class GraphFeaturesExtractor:
 
         return communities_df
 
-    def _create_node_features(self) -> pd.DataFrame:
+    def create_full_node_features(self) -> pd.DataFrame:
         """
         This method performs the transformations in self.graph in order to produce the final dataset.
         It runs all the feature transformations one by one and it assembles the outputs
@@ -635,6 +644,60 @@ class GraphFeaturesExtractor:
             node_metrics.append(node_features)
 
         node_metrics_df = pd.DataFrame(node_metrics)
+        return node_metrics_df
+
+    def create_simple_node_features(self,
+                                    load_metrics: bool = False,
+                                    save_metrics: bool = True,
+                                    outfile: str = 'graph_simple_metrics.csv') -> pd.DataFrame:
+        """
+        This method performs the transformations in self.graph in order to produce the final dataset.
+        It runs all the feature transformations one by one and it assembles the outputs
+        to one Pandas DataFrame
+
+        :return: Pandas DataFrame, is stored in object's process_data variable.
+        """
+        if load_metrics:
+            outfile = os.path.join(PROCESSED_DATA_DIR, outfile)
+            return pd.read_csv(outfile)
+
+        print('calculating avg neighbour degree')
+        avg_neigh_degree_dict = self.calculate_avg_neighbour_degree
+        print('calculating out degree')
+        out_degree_dict = self.calculate_out_degree
+        print('calculating in degree')
+        in_degree_dict = self.calculate_in_degree
+        print('calculating undirected degree')
+        degree_dict = self.calculate_undirected_degree
+        print('calculating out degree centrality')
+        out_degree_centrality_dict = self.calculate_out_degree_centrality
+        print('calculating in degree centrality')
+        in_degree_centrality_dict = self.calculate_in_degree_centrality
+        print('calculating undirected degree centrality')
+        degree_centrality_dict = self.calculate_undirected_degree_centrality
+        print('Done')
+
+        node_metrics = list()
+        for node in self.directed_graph.nodes():
+            node_features = {
+                'node': str(node),
+                'avg_neigh_deg': avg_neigh_degree_dict[node],
+                'out_degree': out_degree_dict[node],
+                'in_degree': in_degree_dict[node],
+                'degree': degree_dict[node],
+                'out_degree_centrality': out_degree_centrality_dict[node],
+                'in_degree_centrality': in_degree_centrality_dict[node],
+                'degree_centrality': degree_centrality_dict[node],
+            }
+
+            node_metrics.append(node_features)
+
+        node_metrics_df = pd.DataFrame(node_metrics)
+
+        if save_metrics:
+            outfile = os.path.join(PROCESSED_DATA_DIR, outfile)
+            node_metrics_df.to_csv(outfile, index=False, encoding='utf-8')
+
         return node_metrics_df
 
     def create_node2vec_embeddings(self,
