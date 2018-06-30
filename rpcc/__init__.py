@@ -55,6 +55,8 @@ RAW_DATA_DIR = os.path.join(DATA_DIR, 'raw')
 PROCESSED_DATA_DIR = os.path.join(DATA_DIR, 'processed')
 OUTFILE_DATA_DIR = os.path.join(DATA_DIR, 'outfile')
 
+TENSORBOARD_LOGS_DIR = os.path.join(PARENT_DIRECTORY, 'Graph')
+
 # if the folders don't exist, create them.
 if not exists(DATA_DIR):
     makedirs(DATA_DIR)
@@ -71,6 +73,8 @@ if not exists(PROCESSED_DATA_DIR):
 if not exists(OUTFILE_DATA_DIR):
     makedirs(OUTFILE_DATA_DIR)
 
+if not exists(TENSORBOARD_LOGS_DIR):
+    makedirs(TENSORBOARD_LOGS_DIR)
 CONTRACTION_MAP = {
     "ain't": "is not",
     "aren't": "are not",
