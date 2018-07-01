@@ -51,13 +51,13 @@ class DataLoader:
         self.x_test = None
 
         # X - ids
-        self.train_validation_ids = None
+        self.train_ids = None
         self.train_ids = None
         self.validation_ids = None
         self.test_ids = None
 
         # y - targets
-        self.y_train_validation = None
+        self.y_train = None
         self.y_train = None
         self.y_val = None
 
@@ -75,7 +75,7 @@ class DataLoader:
     def get_stratified_data(self,
                             X: pd.DataFrame,
                             y: pd.Series,
-                            val_size: float = 0.2,
+                            val_size: float = 0.1,
                             random_state: int = 0) -> dict:
         """
         Performs stratified shuffle splitting to the given dataset
@@ -178,11 +178,11 @@ class DataLoader:
         # train_val_enhanced['abstract_graph'] = train_val_enhanced['abstract'].apply(self.generate_graph_from_text)
 
         # storing the train_validation ids
-        self.train_validation_ids = list(train_val_df['Article'])
+        self.train_ids = list(train_val_df['Article'])
         # storing the x_train_validation dataset without the target
         self.x_train_validation = train_val_enhanced.drop('Journal', axis=1)
         # storing the y_train_validation
-        self.y_train_validation = train_val_enhanced['Journal']
+        self.y_train = train_val_enhanced['Journal']
 
         # storing all the possible values of the targets.
         self.targets = set(train_val_enhanced['Journal'])
@@ -214,7 +214,7 @@ class DataLoader:
         # storing the features of the test dataset.
         self.x_test = test_x
 
-    def run_data_preparation(self, val_size: float = 0.2) -> None:
+    def run_data_preparation(self, val_size: float = 0.1) -> None:
         """
         Creates all the needed datasets and networks for the given inputs.
 
@@ -236,7 +236,7 @@ class DataLoader:
 
         # splitting the train_validation dataset in train - validation
         split_meta = self.get_stratified_data(X=self.x_train_validation,
-                                              y=self.y_train_validation,
+                                              y=self.y_train,
                                               val_size=val_size,
                                               random_state=0)
 
@@ -254,7 +254,7 @@ class DataLoader:
         if self.verbose > 0:
 
             print('X_train_validation shape: {}'.format(self.x_train_validation.shape))
-            print('y_train_validation shape: {}'.format(self.y_train_validation.shape))
+            print('y_train_validation shape: {}'.format(self.y_train.shape))
 
             print('X_train shape: {}'.format(self.x_train.shape))
             print('y_train shape: {}'.format(self.y_train.shape))
