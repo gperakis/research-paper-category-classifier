@@ -5,6 +5,7 @@ import re
 from itertools import combinations
 from random import choice
 
+import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import pandas as pd
@@ -15,10 +16,12 @@ from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.text import text_to_word_sequence
 from keras.utils import to_categorical
 from more_itertools import windowed, flatten
+from networkx.algorithms import bipartite
 from networkx.algorithms.community.label_propagation import label_propagation_communities
 from nltk.corpus import stopwords
 
 from rpcc import load_data
+from rpcc.load_data import RAW_DATA_DIR
 
 STOPWORDS = set(stopwords.words('english'))
 SPACY_NLP = spacy.load('en', parse=False, tag=False, entity=False)
@@ -900,6 +903,81 @@ def get_citations_centroid_embeddings(citations: list,
             citation_vectors.append(token_emb)
 
     return np.array(citation_vectors)
+
+
+def create_authors2article_bipartite_graph(df: pd.DataFrame) -> nx.Graph:
+    """
+    This function creates the authors to abstracts bipartite graph.
+    :param df:
+    :return:
+    """
+
+    B = nx.Graph()
+
+    records = df.to_dict('records')
+
+    author_tokenizer = TextFeaturesExtractor.clean_up_authors
+    for rec in records:
+        cleaned_authors = list(filter(lambda x: len(x) > 2,
+                                      author_tokenizer(rec['authors'])))
+
+        if cleaned_authors:
+            weight = 1 / len(cleaned_authors)
+
+            edge_list = [(author, rec['id']) for author in cleaned_authors]
+            # B.add_nodes_from(cleaned_authors, bipartite=0)
+            # B.add_nodes_from([rec['id']], bipartite=1)
+            B.add_edges_from(edge_list, weight=weight)
+
+    return B
+
+
+def get_authors2titles() -> pd.DataFrame:
+    """
+    This function makes to first preprocessing in order to create the bipartite graph.
+
+    :return:
+    """
+    df1 = pd.read_csv(os.path.join(RAW_DATA_DIR, 'node_information.csv'),
+                      usecols=['id', 'authors', 'title'])
+
+    df1 = df1.where((pd.notnull(df1)), None)
+
+    records = df1.to_dict('records')
+
+    authors_results = list()
+    author_tokenizer = TextFeaturesExtractor.clean_up_authors
+    for rec in records:
+        cleaned_authors = list(filter(lambda x: len(x) > 2,
+                                      author_tokenizer(rec['authors'])))
+
+        for auth in cleaned_authors:
+            d = {'author': auth, 'title': rec['title']}
+            authors_results.append(d)
+
+    authors_df = pd.DataFrame(authors_results).dropna(subset=['title'])
+
+    grouped = authors_df.groupby('author').agg({'title': lambda x: ' '.join(list(x))})
+
+    return grouped
+
+
+def plot_bipartite_graph(graph):
+    """
+
+    :param graph:
+    :return:
+    """
+    x, y = bipartite.sets(graph)
+    pos = dict()
+    pos.update((n, (1, i)) for i, n in enumerate(x))  # put nodes from x at x=1
+    pos.update((n, (2, i)) for i, n in enumerate(y))  # put nodes from y at x=2
+    plt.figure(figsize=(40, 40))
+    nx.draw(graph, pos=pos, with_labels=True)
+    labels = nx.get_edge_attributes(graph, 'weight')
+    nx.draw_networkx_edge_labels(graph, pos, edge_labels=labels)
+    # plt.show()
+    plt.savefig("Bipartite_Graph.png", format="PNG")
 
 
 if __name__ == "__main__":

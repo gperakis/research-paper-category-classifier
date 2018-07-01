@@ -1,15 +1,13 @@
 import operator
 from pickle import dump
+from pprint import pprint
+
+import numpy as np
+from sklearn.model_selection import KFold
 
 from rpcc import MODELS_DIR
 # from rpcc.create_features import FeatureExtractor
-from rpcc.load_data import DataLoader
 from rpcc.models import FeedForward
-from sklearn.model_selection import KFold
-from rpcc.case_class import x, test_x, y
-import pandas as pd
-from pprint import pprint
-import numpy as np
 
 """
 This script is responsible for running the hyperparameter tuning.
