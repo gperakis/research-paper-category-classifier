@@ -4,7 +4,7 @@ import pickle
 import re
 from itertools import combinations
 from random import choice
-from rpcc import load_data
+
 import networkx as nx
 import numpy as np
 import pandas as pd
@@ -18,10 +18,12 @@ from more_itertools import windowed, flatten
 from networkx.algorithms.community.label_propagation import label_propagation_communities
 from nltk.corpus import stopwords
 
+from rpcc import load_data
+
 STOPWORDS = set(stopwords.words('english'))
 SPACY_NLP = spacy.load('en', parse=False, tag=False, entity=False)
 
-from rpcc import PROCESSED_DATA_DIR, CONTRACTION_MAP, RAW_DATA_DIR
+from rpcc import PROCESSED_DATA_DIR, CONTRACTION_MAP
 
 
 class FeatureExtractor:
@@ -791,6 +793,113 @@ def create_node2vec_embeddings_from_texts(texts: iter,
             pickle.dump(embeddings_dict, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
     return embeddings_dict
+
+
+def get_authors_centroid_embeddings(authors: list,
+                                    embeddings_dict: dict,
+                                    emb_size: int = 200) -> np.array:
+    """
+
+    :param authors:
+    :param embeddings_dict:
+    :param emb_size:
+    :return:
+    """
+    print('getting authors_centroid_embeddings')
+    authors_vectors = list()
+    for str_authors in authors:
+        authors_list = TextFeaturesExtractor.clean_up_authors(authors=str_authors)
+
+        if authors_list:
+            sum_authors = np.zeros(shape=(emb_size,), dtype='float')
+            for author in authors_list:
+
+                author_vec = embeddings_dict.get(author, None)
+
+                if author_vec is None:
+                    print(author)
+                    author_vec = np.random.normal(loc=0.0,
+                                                  scale=0.1,
+                                                  size=emb_size)
+
+                sum_authors += author_vec
+
+            authors_vectors.append(sum_authors / len(authors_list))
+
+        else:
+            authors_vectors.append(np.random.normal(loc=0.0,
+                                                    scale=0.1,
+                                                    size=emb_size))
+
+    return np.array(authors_vectors)
+
+
+def get_text_centroid_embeddings(texts: list,
+                                 embeddings_dict: dict,
+                                 emb_size: int = 200) -> np.array:
+    """
+
+    :param texts:
+    :param embeddings_dict:
+    :param emb_size:
+    :return:
+    """
+    print('getting text_centroid_embeddings')
+
+    texts_vectors = list()
+
+    for text in texts:
+
+        expanded_text = TextFeaturesExtractor.expand_contractions(text=text)
+        tokens = text_to_word_sequence(text=expanded_text, lower=True)
+
+        if tokens:
+            sum_text_embeddings = np.zeros(shape=(emb_size,), dtype='float')
+            for token in tokens:
+                token_emb = embeddings_dict.get(token, None)
+
+                if token_emb is None:
+                    print(token)
+                    token_emb = np.random.normal(loc=0.0,
+                                                 scale=0.1,
+                                                 size=emb_size)
+                sum_text_embeddings += token_emb
+
+            texts_vectors.append(sum_text_embeddings / len(tokens))
+
+        else:
+            texts_vectors.append(np.random.normal(loc=0.0,
+                                                  scale=0.1,
+                                                  size=emb_size))
+
+    return np.array(texts_vectors)
+
+
+def get_citations_centroid_embeddings(citations: list,
+                                      embeddings_dict: dict,
+                                      emb_size: int = 200) -> np.array:
+    """
+
+    :param citations:
+    :param embeddings_dict:
+    :param emb_size:
+    :return:
+    """
+    print('getting text_centroid_embeddings')
+    citation_vectors = list()
+
+    for citation in citations:
+        token_emb = embeddings_dict.get(citation, None)
+        if token_emb is None:
+            print(citation)
+            citation_vectors.append(np.random.normal(loc=0.0,
+                                                     scale=0.1,
+                                                     size=emb_size))
+
+        else:
+            citation_vectors.append(token_emb)
+
+    return np.array(citation_vectors)
 
 
 if __name__ == "__main__":

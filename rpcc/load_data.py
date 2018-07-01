@@ -214,7 +214,7 @@ class DataLoader:
         # storing the features of the test dataset.
         self.x_test = test_x
 
-    def run_data_preparation(self, val_size: float = 0.1) -> None:
+    def run_data_preparation(self, val_size: float = 0.1, random_state: int = 0) -> None:
         """
         Creates all the needed datasets and networks for the given inputs.
 
@@ -238,7 +238,7 @@ class DataLoader:
         split_meta = self.get_stratified_data(X=self.x_train_validation,
                                               y=self.y_train,
                                               val_size=val_size,
-                                              random_state=0)
+                                              random_state=random_state)
 
         # Stores splitting output into separate dictionaries
         self.x_train = split_meta['x_train']
