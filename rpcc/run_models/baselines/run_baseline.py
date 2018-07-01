@@ -1,5 +1,7 @@
-import pandas as pd
 import os
+
+import pandas as pd
+
 from rpcc import DATA_DIR
 
 'sample_submission_bow'

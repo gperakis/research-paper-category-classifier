@@ -1,13 +1,10 @@
 from sklearn.feature_extraction.text import TfidfTransformer
-from sklearn.pipeline import FeatureUnion, Pipeline
-from sklearn.preprocessing import Normalizer, StandardScaler
-from sklearn.svm import SVC
 from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.naive_bayes import MultinomialNB
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+
 from rpcc.features_text import *
-from rpcc.load_data import load_graph, load_train_ids, load_data
+from rpcc.load_data import load_data
 from rpcc.run_models import run_grid_search
 
 if __name__ == "__main__":

@@ -1,14 +1,9 @@
-import pandas as pd
-from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
-from sklearn.svm import SVC
-
-from rpcc.load_data import DataLoader, restore_data_loader
-from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.naive_bayes import MultinomialNB
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
-from seaborn import heatmap
-import matplotlib.pyplot as plt
+
 from rpcc.evaluation import create_clf_report
+from rpcc.load_data import DataLoader, restore_data_loader
 
 
 def custom_split(text):

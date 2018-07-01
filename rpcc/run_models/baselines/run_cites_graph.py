@@ -1,12 +1,11 @@
 from sklearn.linear_model import LogisticRegression
-from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.ensemble import RandomForestClassifier
+
 from rpcc import features_graph
-from rpcc.load_data import restore_data_loader, DataLoader
-from rpcc.run_models import run_grid_search
 from rpcc.features_graph import create_combined_paper_authors_graph_features
+from rpcc.load_data import restore_data_loader
+from rpcc.run_models import run_grid_search
 
 if __name__ == "__main__":
     dl_obj = restore_data_loader()
