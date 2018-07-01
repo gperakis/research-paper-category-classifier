@@ -1,13 +1,10 @@
-import pandas as pd
-from rpcc import DATA_DIR
-from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.decomposition import TruncatedSVD
-from sklearn.preprocessing import LabelBinarizer
-from rpcc.models import FeedForward
-import os
-import csv
-from sklearn.linear_model import LogisticRegression
 import re
+
+import pandas as pd
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.preprocessing import LabelBinarizer
+
+from rpcc import DATA_DIR
 
 
 def clean(doc):

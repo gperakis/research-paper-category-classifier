@@ -9,7 +9,9 @@ from keras.models import Model
 from keras.optimizers import Adam
 from keras.preprocessing.sequence import pad_sequences
 from sklearn.preprocessing import LabelBinarizer
-
+import os
+from rpcc import PROCESSED_DATA_DIR
+import pandas as pd
 from rpcc import MODELS_DIR
 from rpcc import TENSORBOARD_LOGS_DIR
 from rpcc.create_features import TextFeaturesExtractor, GraphFeaturesExtractor
@@ -46,8 +48,8 @@ def get_citations_embeddings(citations_ids: list,
 
 
 # loading data
-dl_obj = DataLoader(verbose=10)
-dl_obj.run_data_preparation()
+dl_obj = DataLoader(verbose=0)
+dl_obj.run_data_preparation(val_size=0.1, random_state=0)
 
 # creating a label binarizer instance in order to convert the classes to one hot vectors
 lb = LabelBinarizer()
@@ -171,15 +173,32 @@ x_val_citation_metrics = citations_node_metrics.loc[dl_obj.validation_ids]
 x_test_citation_metrics = citations_node_metrics.loc[dl_obj.test_ids]
 
 #####################################################################################################
+#####################################################################################################
+#####################################################################################################
+community_outfile = os.path.join(PROCESSED_DATA_DIR, 'citation_communities.csv')
 
+community_df = pd.read_csv(community_outfile)
+community_df.rename(columns={'Unnamed: 0': 'article'}, inplace=True)
+community_df['article'] = community_df['article'].apply(str)
+community_df.set_index('article', inplace=True)
+
+x_train_comm = community_df.loc[dl_obj.train_ids].values
+x_val_comm = community_df.loc[dl_obj.validation_ids].values
+x_test_comm = community_df.loc[dl_obj.test_ids].values
+#####################################################################################################
+#####################################################################################################
+#####################################################################################################
 x_train_static = np.concatenate((x_train_citation_metrics.values,
-                                 x_train_citations_emb), axis=1)
+                                 x_train_citations_emb,
+                                 x_train_comm), axis=1)
 
 x_val_static = np.concatenate((x_val_citation_metrics.values,
-                               x_val_citations_emb), axis=1)
+                               x_val_citations_emb,
+                               x_val_comm), axis=1)
 
 x_test_static = np.concatenate((x_test_citation_metrics.values,
-                                x_test_citations_emb), axis=1)
+                                x_test_citations_emb,
+                                x_test_comm), axis=1)
 
 print('X train static metrics shape: ', x_train_static.shape)
 print('X val static metrics shape: ', x_val_static.shape)
@@ -359,13 +378,13 @@ def build_model(rnn_size,
     return mixed_model
 
 
-DROPOUT = 0.8
+DROPOUT = 0.9
 RNN_EMB_SIZE = 300
 RNN_SIZE = 100
 STATIC_INPUT_SIZE = x_train_static.shape[1]
 lr = 0.001
 regularization = regularizers.l2(0.01)
-N_EPOCHS = 30
+N_EPOCHS = 100
 BATCH_SIZE = 128
 model_outfile = os.path.join(MODELS_DIR, 'all_inputs_model.h5')
 
@@ -390,10 +409,10 @@ opt = Adam(lr=lr, decay=0.0)
 
 callbacks_list = [
     callbacks.TensorBoard(log_dir=TENSORBOARD_LOGS_DIR,
-                          histogram_freq=1,
+                          histogram_freq=0,
                           embeddings_freq=1,
                           write_graph=True,
-                          write_images=True),
+                          write_images=False),
     callbacks.EarlyStopping(monitor='val_loss',
                             patience=2),
     callbacks.ModelCheckpoint(filepath=model_outfile,

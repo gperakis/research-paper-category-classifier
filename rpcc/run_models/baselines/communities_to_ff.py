@@ -4,8 +4,6 @@ from rpcc.create_features import TextFeaturesExtractor, GraphFeaturesExtractor
 from rpcc.load_data import DataLoader
 from rpcc.models import FeedForward
 
-
-
 if __name__ == "__main__":
     dl_obj = DataLoader()
     dl_obj.run_data_preparation()

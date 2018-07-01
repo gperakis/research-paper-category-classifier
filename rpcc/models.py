@@ -11,6 +11,7 @@ from keras.optimizers import Adam
 from rpcc import DATA_DIR
 from keras import regularizers
 
+
 class ModelNN:
     def __init__(self,
                  emb_size: int,

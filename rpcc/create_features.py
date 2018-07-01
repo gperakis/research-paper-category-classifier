@@ -1009,15 +1009,27 @@ if __name__ == "__main__":
     #################################################################################
     #
     ################################################################################
-    dl_obj = load_data.DataLoader()
-    dl_obj.load_article_metadata()
-    authors_list = dl_obj.authors
-    tfe_obj = TextFeaturesExtractor(input_data=None)
-    authors_graph = tfe_obj.create_authors_graph(authors=authors_list)
-    gfe_obj = GraphFeaturesExtractor(graph=authors_graph)
-    for emb_d in [50, 100, 200, 300]:
-        gfe_obj.create_node2vec_embeddings(emb_size=emb_d,
-                                           filename='glove.authors.graph.nodes',
-                                           save_embeddings=True,
-                                           load_embeddings=False)
+    # dl_obj = load_data.DataLoader()
+    # dl_obj.load_article_metadata()
+    # authors_list = dl_obj.authors
+    # tfe_obj = TextFeaturesExtractor(input_data=None)
+    # authors_graph = tfe_obj.create_authors_graph(authors=authors_list)
+    # gfe_obj = GraphFeaturesExtractor(graph=authors_graph)
+    # for emb_d in [50, 100, 200, 300]:
+    #     gfe_obj.create_node2vec_embeddings(emb_size=emb_d,
+    #                                        filename='glove.authors.graph.nodes',
+    #                                        save_embeddings=True,
+    #                                        load_embeddings=False)
     ################################################################################
+
+    # # Extracting communities for the citation network
+    # dl_obj = load_data.DataLoader()
+    # dl_obj.run_data_preparation()
+    # gfe_obj = GraphFeaturesExtractor(graph=dl_obj.citation_graph)
+    #
+    # comm_df = gfe_obj.get_one_hot_communities
+    # print(comm_df.shape[1])
+    # print('saving')
+    # community_outfile = os.path.join(PROCESSED_DATA_DIR, 'citation_communities.csv')
+    # comm_df.to_csv(community_outfile, encoding='utf-8')
+    #
