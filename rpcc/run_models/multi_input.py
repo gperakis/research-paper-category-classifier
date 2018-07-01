@@ -6,7 +6,7 @@ from keras import layers
 from keras import regularizers
 from keras.layers import Input
 from keras.models import Model
-from keras.optimizers import Adam
+from keras.optimizers import Adam, RMSprop
 from keras.preprocessing.sequence import pad_sequences
 from sklearn.preprocessing import LabelBinarizer
 import os
@@ -14,7 +14,7 @@ from rpcc import PROCESSED_DATA_DIR
 import pandas as pd
 from rpcc import MODELS_DIR
 from rpcc import TENSORBOARD_LOGS_DIR
-from rpcc.create_features import TextFeaturesExtractor, GraphFeaturesExtractor
+from rpcc.create_features import TextFeaturesExtractor, GraphFeaturesExtractor, get_authors_community_vectors
 from rpcc.load_data import DataLoader
 
 
@@ -188,17 +188,45 @@ x_test_comm = community_df.loc[dl_obj.test_ids].values
 #####################################################################################################
 #####################################################################################################
 #####################################################################################################
+# Authors communities metadata
+
+authors_community_infile = os.path.join(PROCESSED_DATA_DIR, 'authors_communities.csv')
+
+authors_community_df = pd.read_csv(authors_community_infile)
+authors_community_df.rename(columns={'Unnamed: 0': 'authors'}, inplace=True)
+authors_community_df['authors'].apply(lambda x: x.lower().strip())
+authors_community_df.set_index('authors', inplace=True)
+
+x_train_authors_communities = get_authors_community_vectors(authors_list=dl_obj.x_train['authors'],
+                                                            authors_community_df=authors_community_df)
+
+x_val_authors_communities = get_authors_community_vectors(authors_list=dl_obj.x_val['authors'],
+                                                          authors_community_df=authors_community_df)
+
+x_test_authors_communities = get_authors_community_vectors(authors_list=dl_obj.x_test['authors'],
+                                                           authors_community_df=authors_community_df)
+
+print('Authors community x_train size: ', x_train_authors_communities.shape)
+print('Authors community x_val size: ', x_val_authors_communities.shape)
+print('Authors community x_test size: ', x_test_authors_communities.shape)
+
+# #####################################################################################################
+#####################################################################################################
+#####################################################################################################
 x_train_static = np.concatenate((x_train_citation_metrics.values,
                                  x_train_citations_emb,
-                                 x_train_comm), axis=1)
+                                 x_train_comm,
+                                 x_train_authors_communities), axis=1)
 
 x_val_static = np.concatenate((x_val_citation_metrics.values,
                                x_val_citations_emb,
-                               x_val_comm), axis=1)
+                               x_val_comm,
+                               x_val_authors_communities), axis=1)
 
 x_test_static = np.concatenate((x_test_citation_metrics.values,
                                 x_test_citations_emb,
-                                x_test_comm), axis=1)
+                                x_test_comm,
+                                x_test_authors_communities), axis=1)
 
 print('X train static metrics shape: ', x_train_static.shape)
 print('X val static metrics shape: ', x_val_static.shape)
@@ -378,7 +406,7 @@ def build_model(rnn_size,
     return mixed_model
 
 
-DROPOUT = 0.9
+DROPOUT = 0.5
 RNN_EMB_SIZE = 300
 RNN_SIZE = 100
 STATIC_INPUT_SIZE = x_train_static.shape[1]
@@ -406,6 +434,7 @@ model = build_model(rnn_size=RNN_SIZE,
                     dropout=DROPOUT)
 
 opt = Adam(lr=lr, decay=0.0)
+# opt = RMSprop(lr=lr, decay=0.0)
 
 callbacks_list = [
     callbacks.TensorBoard(log_dir=TENSORBOARD_LOGS_DIR,
@@ -414,13 +443,13 @@ callbacks_list = [
                           write_graph=True,
                           write_images=False),
     callbacks.EarlyStopping(monitor='val_loss',
-                            patience=2),
+                            patience=30),
     callbacks.ModelCheckpoint(filepath=model_outfile,
                               monitor='val_loss',
                               save_best_only=True),
     callbacks.ReduceLROnPlateau(monitor='val_loss',
                                 factor=0.1,
-                                patience=1)]
+                                patience=5)]
 
 x_train_input = [x_train_abstracts_padded,
                  x_train_titles_padded,
@@ -439,3 +468,7 @@ history = model.fit(x=x_train_input,
                     validation_data=(x_val_input, y_val_one_hot),
                     verbose=2,
                     callbacks=callbacks_list)
+
+from rpcc.evaluation import plot_model_metadata
+
+plot_model_metadata(history)

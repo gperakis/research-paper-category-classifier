@@ -980,6 +980,34 @@ def plot_bipartite_graph(graph):
     plt.savefig("Bipartite_Graph.png", format="PNG")
 
 
+def get_authors_community_vectors(authors_list: list,
+                                  authors_community_df: pd.DataFrame) -> np.array:
+    """
+    This function sums the community vectors for multiple authors for each article.
+    If no authors for given article then, np.zeros() is returned.
+    :param authors_list:
+    :param authors_community_df:
+    :return:
+    """
+    tfe_obj = TextFeaturesExtractor(input_data=None)
+
+    n_classes = authors_community_df.shape[1]
+
+    authors_outputs = list()
+    for authors_line in authors_list:
+
+        authors_sum_vector = np.zeros(n_classes)
+        co_authors = tfe_obj.clean_up_authors(authors_line)
+        for author in co_authors:
+            try:
+                authors_sum_vector = authors_sum_vector + authors_community_df.loc[author].values
+            except:
+                print(author)
+
+        authors_outputs.append(authors_sum_vector)
+
+    return np.array(authors_outputs)
+
 if __name__ == "__main__":
     pass
     #################################################################################
@@ -1033,3 +1061,21 @@ if __name__ == "__main__":
     # community_outfile = os.path.join(PROCESSED_DATA_DIR, 'citation_communities.csv')
     # comm_df.to_csv(community_outfile, encoding='utf-8')
     #
+    ################################################################################
+
+    # # # Extracting communities for the authors network
+    # from rpcc.load_data import DataLoader
+    # dl_obj = DataLoader()
+    # dl_obj.run_data_preparation()
+    # 
+    # tfe_obj = TextFeaturesExtractor(input_data=None)
+    # authors_graph = tfe_obj.create_authors_graph(authors=dl_obj.authors)
+    # 
+    # gfe_obj = GraphFeaturesExtractor(graph=authors_graph)
+    # 
+    # authors_graph_communities = gfe_obj.get_one_hot_communities
+    # print(authors_graph_communities.shape[1])
+    # print('saving')
+    # authors_community_outfile = os.path.join(PROCESSED_DATA_DIR, 'authors_communities.csv')
+    # authors_graph_communities.to_csv(authors_community_outfile, encoding='utf-8')
+    ################################################################################

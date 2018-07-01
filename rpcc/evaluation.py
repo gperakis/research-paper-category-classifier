@@ -206,3 +206,30 @@ def plot_precision_recall_curve(y_true, y_pred_scores, pos_label=1):
     plt.xlim([0.0, 1.0])
     plt.title('2-class Precision-Recall curve: AP={0:0.2f}'.format(average_precision))
     plt.show()
+
+
+def plot_model_metadata(history):
+    """
+    :param history:
+    :return:
+    """
+    #  "Accuracy"
+    # plt.subplot(1, 2, 1)
+    plt.plot(history.history['acc'])
+    plt.plot(history.history['val_acc'])
+    plt.title('Model Accuracy')
+    plt.ylabel('accuracy')
+    plt.xlabel('epoch')
+    plt.ylim(ymax=1)
+    plt.legend(['train', 'validation'], loc='upper left')
+    plt.show()
+
+    # "Loss"
+    # plt.subplot(1, 2, 2)
+    plt.plot(history.history['loss'])
+    plt.plot(history.history['val_loss'])
+    plt.title('Model Loss')
+    plt.ylabel('loss')
+    plt.xlabel('epoch')
+    plt.legend(['train', 'validation'], loc='upper left')
+    plt.show()
