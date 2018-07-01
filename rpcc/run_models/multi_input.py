@@ -312,7 +312,8 @@ def build_model(rnn_size,
                 node_2_vec_emb_size,
                 regularization,
                 static_input_size,
-                dropout):
+                dropout,
+                opt):
     """
 
     :return:
@@ -398,7 +399,7 @@ def build_model(rnn_size,
                          metrics_input],
                         category)
 
-    mixed_model.compile(optimizer='adam',
+    mixed_model.compile(optimizer=opt,
                         loss='categorical_crossentropy',
                         metrics=['acc'])
 
@@ -419,6 +420,9 @@ model_outfile = os.path.join(MODELS_DIR, 'all_inputs_model.h5')
 abstracts_voc_size = len(x_train_abstracts_int2word)
 titles_voc_size = len(x_train_titles_int2word)
 
+# opt = Adam(lr=lr, decay=0.0)
+opt = RMSprop(lr=lr, decay=0.0)
+
 model = build_model(rnn_size=RNN_SIZE,
                     rnn_emb_size=RNN_EMB_SIZE,
                     abstracts_max_length=x_train_abstracts_max_length,
@@ -431,10 +435,8 @@ model = build_model(rnn_size=RNN_SIZE,
                     node_2_vec_emb_size=NODE_2_VEC_EMB_SIZE,
                     regularization=regularization,
                     static_input_size=STATIC_INPUT_SIZE,
-                    dropout=DROPOUT)
-
-opt = Adam(lr=lr, decay=0.0)
-# opt = RMSprop(lr=lr, decay=0.0)
+                    dropout=DROPOUT,
+                    opt=opt)
 
 callbacks_list = [
     callbacks.TensorBoard(log_dir=TENSORBOARD_LOGS_DIR,
