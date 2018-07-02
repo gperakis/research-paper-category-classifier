@@ -16,7 +16,8 @@ from rpcc import MODELS_DIR
 from rpcc import TENSORBOARD_LOGS_DIR
 from rpcc.create_features import TextFeaturesExtractor, GraphFeaturesExtractor, get_authors_community_vectors
 from rpcc.load_data import DataLoader
-
+import networkx as nx
+from grakel import GraphKernel
 
 # from keras.models import load_model
 
@@ -49,7 +50,7 @@ def get_citations_embeddings(citations_ids: list,
 
 # loading data
 dl_obj = DataLoader(verbose=0)
-dl_obj.run_data_preparation(val_size=0.1, random_state=0)
+dl_obj.run_data_preparation(val_size=0.1, random_state=5)
 
 # creating a label binarizer instance in order to convert the classes to one hot vectors
 lb = LabelBinarizer()
@@ -175,6 +176,7 @@ x_test_citation_metrics = citations_node_metrics.loc[dl_obj.test_ids]
 #####################################################################################################
 #####################################################################################################
 #####################################################################################################
+
 community_outfile = os.path.join(PROCESSED_DATA_DIR, 'citation_communities.csv')
 
 community_df = pd.read_csv(community_outfile)
@@ -185,6 +187,7 @@ community_df.set_index('article', inplace=True)
 x_train_comm = community_df.loc[dl_obj.train_ids].values
 x_val_comm = community_df.loc[dl_obj.validation_ids].values
 x_test_comm = community_df.loc[dl_obj.test_ids].values
+
 #####################################################################################################
 #####################################################################################################
 #####################################################################################################
@@ -210,23 +213,68 @@ print('Authors community x_train size: ', x_train_authors_communities.shape)
 print('Authors community x_val size: ', x_val_authors_communities.shape)
 print('Authors community x_test size: ', x_test_authors_communities.shape)
 
-# #####################################################################################################
+######################################################################################################
+######################################################################################################
+######################################################################################################
+# GRAPH KERNEL IMPLEMENTATION
+
+REMOVE_STOP_WORDS = True
+DIRECTED = False
+sp_kernel = GraphKernel(kernel={"name": "shortest_path",
+                                'with_labels': False},
+                        normalize=True)
+
+x_train_abstract_graphs = list()
+for text in dl_obj.x_train['abstract']:
+    graph = tfe_obj.generate_graph_from_text(text=text,
+                                             remove_stopwords=REMOVE_STOP_WORDS,
+                                             directed=DIRECTED)
+
+    inp = nx.to_dict_of_lists(graph)
+    x_train_abstract_graphs.append([inp])
+
+x_val_abstract_graphs = list()
+for text in dl_obj.x_val['abstract']:
+    graph = tfe_obj.generate_graph_from_text(text=text,
+                                             remove_stopwords=REMOVE_STOP_WORDS,
+                                             directed=DIRECTED)
+
+    inp = nx.to_dict_of_lists(graph)
+    x_val_abstract_graphs.append([inp])
+
+x_test_abstract_graphs = list()
+for text in dl_obj.x_test['abstract']:
+    graph = tfe_obj.generate_graph_from_text(text=text,
+                                             remove_stopwords=REMOVE_STOP_WORDS,
+                                             directed=DIRECTED)
+
+    inp = nx.to_dict_of_lists(graph)
+    x_test_abstract_graphs.append([inp])
+
+K_train = sp_kernel.fit_transform(x_train_abstract_graphs)
+K_val = sp_kernel.transform(x_val_abstract_graphs)
+K_test = sp_kernel.transform(x_test_abstract_graphs)
+
+######################################################################################################
 #####################################################################################################
 #####################################################################################################
 x_train_static = np.concatenate((x_train_citation_metrics.values,
                                  x_train_citations_emb,
                                  x_train_comm,
-                                 x_train_authors_communities), axis=1)
+                                 x_train_authors_communities,
+                                 K_train), axis=1)
 
 x_val_static = np.concatenate((x_val_citation_metrics.values,
                                x_val_citations_emb,
                                x_val_comm,
-                               x_val_authors_communities), axis=1)
+                               x_val_authors_communities,
+                               K_val), axis=1)
 
 x_test_static = np.concatenate((x_test_citation_metrics.values,
                                 x_test_citations_emb,
                                 x_test_comm,
-                                x_test_authors_communities), axis=1)
+                                x_test_authors_communities,
+                                K_test), axis=1)
 
 print('X train static metrics shape: ', x_train_static.shape)
 print('X val static metrics shape: ', x_val_static.shape)
@@ -407,7 +455,7 @@ def build_model(rnn_size,
     return mixed_model
 
 
-DROPOUT = 0.5
+DROPOUT = 0.7
 RNN_EMB_SIZE = 300
 RNN_SIZE = 100
 STATIC_INPUT_SIZE = x_train_static.shape[1]
@@ -420,8 +468,8 @@ model_outfile = os.path.join(MODELS_DIR, 'all_inputs_model.h5')
 abstracts_voc_size = len(x_train_abstracts_int2word)
 titles_voc_size = len(x_train_titles_int2word)
 
-# opt = Adam(lr=lr, decay=0.0)
-opt = RMSprop(lr=lr, decay=0.0)
+opt = Adam(lr=lr, decay=0.0)
+# opt = RMSprop(lr=lr, decay=0.0)
 
 model = build_model(rnn_size=RNN_SIZE,
                     rnn_emb_size=RNN_EMB_SIZE,
@@ -444,14 +492,14 @@ callbacks_list = [
                           embeddings_freq=1,
                           write_graph=True,
                           write_images=False),
-    callbacks.EarlyStopping(monitor='val_loss',
-                            patience=30),
+    callbacks.EarlyStopping(monitor='acc',
+                            patience=10),
     callbacks.ModelCheckpoint(filepath=model_outfile,
                               monitor='val_loss',
                               save_best_only=True),
     callbacks.ReduceLROnPlateau(monitor='val_loss',
                                 factor=0.1,
-                                patience=5)]
+                                patience=2)]
 
 x_train_input = [x_train_abstracts_padded,
                  x_train_titles_padded,
