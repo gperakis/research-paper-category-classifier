@@ -277,12 +277,14 @@ class TextFeaturesExtractor(FeatureExtractor):
     def generate_graph_from_text(self,
                                  text: str,
                                  window_size: int = 3,
+                                 remove_stopwords: bool = False,
                                  directed: bool = True) -> nx.Graph:
         """
         This method creates a graph from the words of a text. At first splits the text in sentences
         and then parses each sentence through a  sliding window, generating a graph by joining the window tokens with
         some weights. This text may be an abstract of a paper or it's title.
 
+        :param remove_stopwords:
         :type text: str
         :type window_size: int
         :type directed: bool
@@ -296,7 +298,11 @@ class TextFeaturesExtractor(FeatureExtractor):
 
         expanded = self.expand_contractions(text=text)
         # lemmatized = self.lemmatize_text(text=expanded)
+        if remove_stopwords:
+            # removing stopwords
+            expanded = ' '.join([i for i in expanded.lower().split() if i not in STOPWORDS])
 
+        # getting the tokens in order to create the graph.
         tokens = text_to_word_sequence(text=expanded, lower=True)
 
         if directed:
@@ -312,6 +318,8 @@ class TextFeaturesExtractor(FeatureExtractor):
         weight_index = list(flatten([list(range(1, i + 1)) for i in range(window_size - 1, 0, -1)]))
 
         for window in windowed(tokens, window_size):
+
+            window = list(filter(None, window))
             # for the tokens in the window take all the combinations.
             # Eg: Tokens: [tok1, tok2, tok3, tok4] the result will be:
             # [tok1, tok2], [tok1, tok3], [tok1, tok4], [tok2, tok3], [tok2, tok4], [tok3, tok4]
@@ -1007,6 +1015,7 @@ def get_authors_community_vectors(authors_list: list,
         authors_outputs.append(authors_sum_vector)
 
     return np.array(authors_outputs)
+
 
 if __name__ == "__main__":
     pass
